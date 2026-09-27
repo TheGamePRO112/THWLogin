@@ -9,16 +9,21 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -26,6 +31,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,9 +40,31 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
-import com.kyant.backdrop.backdrops.rememberBackdrop
-import com.kyant.backdrop.catalog.components.LiquidButton
 import kotlin.math.roundToInt
+
+@Composable
+private fun rememberBackdrop(): Any = remember { Any() }
+
+@Composable
+private fun LiquidButton(
+    onClick: () -> Unit,
+    @Suppress("UNUSED_PARAMETER") backdrop: Any,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(50),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.White.copy(alpha = 0.18f),
+            contentColor = Color.White
+        ),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+        content = content
+    )
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -59,11 +87,16 @@ class MainActivity : ComponentActivity() {
                 } catch (_: Exception) { "1.0.0" }
             }
 
+            // Initialer Default für Drehsperre = standardmäßig aktiviert
+            if (!prefs.contains("rotation_lock_default_set")) {
+                prefs.edit().putBoolean("rotation_lock_state", true).putBoolean("rotation_lock_default_set", true).apply()
+            }
+
             // States
             var barcodeValue by remember { mutableStateOf(prefs.getString("letzterBarcode", "") ?: "") }
             var barcodeBias by remember { mutableFloatStateOf(prefs.getFloat("barcode_position_bias", 0.08f).coerceIn(0f, 0.5f)) }
             var isLocked by remember { mutableStateOf(prefs.getBoolean("barcode_lock_state", false)) }
-            var isRotationLocked by remember { mutableStateOf(prefs.getBoolean("rotation_lock_state", false)) }
+            var isRotationLocked by remember { mutableStateOf(prefs.getBoolean("rotation_lock_state", true)) }
             var showMenu by remember { mutableStateOf(false) }
             var showHelpDialog by remember { mutableStateOf(false) }
             var availableUpdate by remember { mutableStateOf<ReleaseInfo?>(null) }
@@ -103,109 +136,10 @@ class MainActivity : ComponentActivity() {
                             listOf(Color(0xFF003399), Color(0xFF001A4D), Color(0xFF080808))
                         )
                     )
-                    .windowInsetsPadding(WindowInsets.systemBars) // Sicherer Abstand zu Notch & Navleiste
             ) {
                 val screenHeightPx = constraints.maxHeight.toFloat()
 
-                // --- HEADER LEISTE (Menü-Knopf) ---
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box {
-                        LiquidButton(
-                            onClick = { showMenu = true },
-                            backdrop = backdrop
-                        ) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menü", tint = Color.White)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Menü", color = Color.White, fontWeight = FontWeight.SemiBold)
-                        }
-
-                        // Dropdown-Menü
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(if (isLocked) "Position entsperren" else "Position sperren") },
-                                leadingIcon = {
-                                    Icon(
-                                        if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                                        contentDescription = null
-                                    )
-                                },
-                                onClick = {
-                                    isLocked = !isLocked
-                                    prefs.edit().putBoolean("barcode_lock_state", isLocked).apply()
-                                    showMenu = false
-                                    Toast.makeText(context, if (isLocked) "Position fixiert" else "Position frei", Toast.LENGTH_SHORT).show()
-                                }
-                            )
-
-                            DropdownMenuItem(
-                                text = { Text(if (isRotationLocked) "Drehung entsperren" else "Drehung sperren") },
-                                leadingIcon = {
-                                    Icon(
-                                        if (isRotationLocked) Icons.Default.ScreenLockRotation else Icons.Default.ScreenRotation,
-                                        contentDescription = null
-                                    )
-                                },
-                                onClick = {
-                                    isRotationLocked = !isRotationLocked
-                                    prefs.edit().putBoolean("rotation_lock_state", isRotationLocked).apply()
-                                    showMenu = false
-                                }
-                            )
-
-                            DropdownMenuItem(
-                                text = { Text("Neuen Barcode scannen") },
-                                leadingIcon = { Icon(Icons.Default.QrCodeScanner, contentDescription = null) },
-                                onClick = {
-                                    showMenu = false
-                                    val options = ScanOptions().apply {
-                                        setPrompt("Barcode scannen")
-                                        setOrientationLocked(true)
-                                    }
-                                    barcodeLauncher.launch(options)
-                                }
-                            )
-
-                            HorizontalDivider()
-
-                            DropdownMenuItem(
-                                text = { Text("Hilfe & Info") },
-                                leadingIcon = { Icon(Icons.Default.HelpOutline, contentDescription = null) },
-                                onClick = {
-                                    showMenu = false
-                                    showHelpDialog = true
-                                }
-                            )
-                        }
-                    }
-
-                    // Kleiner Status-Indikator
-                    if (isLocked) {
-                        Surface(
-                            color = Color.White.copy(alpha = 0.15f),
-                            shape = MaterialTheme.shapes.small
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.Lock, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Fixiert", color = Color.White, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-
-                // --- VERSCHIEBBARER BARCODE (Bis ganz nach oben = 0.0f möglich!) ---
+                // --- VERSCHIEBBARER BARCODE (Bis ganz nach oben = 0px möglich!) ---
                 val currentOffsetY = (barcodeBias * screenHeightPx).roundToInt()
 
                 Column(
@@ -221,54 +155,231 @@ class MainActivity : ComponentActivity() {
                                     }
                                 ) { _, dragAmount ->
                                     val deltaBias = dragAmount / screenHeightPx
-                                    // 0.0f erlaubt das Schieben bis ganz an den oberen Rand!
-                                    barcodeBias = (barcodeBias + deltaBias).coerceIn(0.0f, 0.5f)
+                                    // 0.0f erlaubt das Schieben bis ganz an den oberen Rand (0px)!
+                                    barcodeBias = (barcodeBias + deltaBias).coerceIn(0.0f, 0.65f)
                                 }
                             }
                         }
-                        .padding(horizontal = 16.dp)
                 ) {
                     if (barcodeBitmap != null) {
-                        Surface(
-                            shape = MaterialTheme.shapes.large,
-                            color = Color.White,
-                            shadowElevation = 10.dp,
-                            modifier = Modifier.fillMaxWidth()
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(14.dp)
-                            ) {
-                                Image(
-                                    bitmap = barcodeBitmap.asImageBitmap(),
-                                    contentDescription = "Barcode",
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(110.dp),
-                                    contentScale = ContentScale.FillBounds
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = barcodeValue,
-                                    color = Color.Black,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp
-                                )
-                            }
+                            Image(
+                                bitmap = barcodeBitmap.asImageBitmap(),
+                                contentDescription = "Barcode",
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .height(54.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                contentScale = ContentScale.FillBounds
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = barcodeValue,
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.2.sp
+                            )
                         }
                     } else {
                         Surface(
                             color = Color.White.copy(alpha = 0.1f),
                             shape = MaterialTheme.shapes.medium,
-                            modifier = Modifier.padding(24.dp)
+                            modifier = Modifier
+                                .padding(horizontal = 24.dp)
+                                .padding(top = 80.dp)
                         ) {
                             Text(
-                                text = "Kein Barcode vorhanden.\nScanne einen Code über das Menü oder unten.",
+                                text = "Kein Barcode vorhanden.\nScanne einen Code über den Button unten.",
                                 color = Color.White.copy(alpha = 0.8f),
                                 fontSize = 15.sp,
+                                textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(16.dp)
                             )
+                        }
+                    }
+                }
+
+                // --- HEADER LEISTE (Nur Icons, kein Text - überdeckt den Barcode nicht) ---
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box {
+                        IconButton(
+                            onClick = { showMenu = true },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(Color.White.copy(alpha = 0.18f), CircleShape)
+                                .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+                        ) {
+                            Icon(
+                                Icons.Default.Menu,
+                                contentDescription = "Menü",
+                                tint = Color.White,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+
+                        // Dropdown-Menü im Liquid Glass Stil
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                            shape = RoundedCornerShape(20.dp),
+                            containerColor = Color.Transparent,
+                            shadowElevation = 14.dp,
+                            border = BorderStroke(
+                                1.dp,
+                                Brush.verticalGradient(
+                                    listOf(
+                                        Color.White.copy(alpha = 0.55f),
+                                        Color.White.copy(alpha = 0.15f)
+                                    )
+                                )
+                            ),
+                            modifier = Modifier
+                                .background(
+                                    brush = Brush.verticalGradient(
+                                        listOf(
+                                            Color.White.copy(alpha = 0.24f),
+                                            Color(0xFF001B48).copy(alpha = 0.82f)
+                                        )
+                                    ),
+                                    shape = RoundedCornerShape(20.dp)
+                                )
+                        ) {
+                            val glassItemColors = MenuDefaults.itemColors(
+                                textColor = Color.White,
+                                leadingIconColor = Color.White,
+                                trailingIconColor = Color.White
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Position sperren", fontWeight = FontWeight.Medium) },
+                                leadingIcon = {
+                                    Icon(
+                                        if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                                        contentDescription = null
+                                    )
+                                },
+                                trailingIcon = {
+                                    Switch(
+                                        checked = isLocked,
+                                        onCheckedChange = null,
+                                        modifier = Modifier.padding(start = 12.dp),
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = Color.White,
+                                            checkedTrackColor = Color(0xFF0055FF),
+                                            uncheckedThumbColor = Color.White.copy(alpha = 0.8f),
+                                            uncheckedTrackColor = Color.White.copy(alpha = 0.2f),
+                                            uncheckedBorderColor = Color.White.copy(alpha = 0.35f)
+                                        )
+                                    )
+                                },
+                                colors = glassItemColors,
+                                onClick = {
+                                    isLocked = !isLocked
+                                    prefs.edit().putBoolean("barcode_lock_state", isLocked).apply()
+                                    Toast.makeText(context, if (isLocked) "Position fixiert" else "Position frei", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Drehung sperren", fontWeight = FontWeight.Medium) },
+                                leadingIcon = {
+                                    Icon(
+                                        if (isRotationLocked) Icons.Default.ScreenLockRotation else Icons.Default.ScreenRotation,
+                                        contentDescription = null
+                                    )
+                                },
+                                trailingIcon = {
+                                    Switch(
+                                        checked = isRotationLocked,
+                                        onCheckedChange = null,
+                                        modifier = Modifier.padding(start = 12.dp),
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = Color.White,
+                                            checkedTrackColor = Color(0xFF0055FF),
+                                            uncheckedThumbColor = Color.White.copy(alpha = 0.8f),
+                                            uncheckedTrackColor = Color.White.copy(alpha = 0.2f),
+                                            uncheckedBorderColor = Color.White.copy(alpha = 0.35f)
+                                        )
+                                    )
+                                },
+                                colors = glassItemColors,
+                                onClick = {
+                                    isRotationLocked = !isRotationLocked
+                                    prefs.edit().putBoolean("rotation_lock_state", isRotationLocked).apply()
+                                    Toast.makeText(context, if (isRotationLocked) "Drehung gesperrt" else "Drehung frei", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                color = Color.White.copy(alpha = 0.2f),
+                                thickness = 1.dp
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Hilfe & Info", fontWeight = FontWeight.Medium) },
+                                leadingIcon = { Icon(Icons.Default.HelpOutline, contentDescription = null) },
+                                colors = glassItemColors,
+                                onClick = {
+                                    showMenu = false
+                                    showHelpDialog = true
+                                }
+                            )
+                        }
+                    }
+
+                    // Status-Indikatoren (nur Logos, noch kleiner & dezenter)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isLocked) {
+                            Surface(
+                                color = Color.White.copy(alpha = 0.18f),
+                                shape = CircleShape,
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f))
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(26.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Lock,
+                                        contentDescription = "Position fixiert",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                }
+                            }
+                        }
+                        if (isRotationLocked) {
+                            Surface(
+                                color = Color.White.copy(alpha = 0.18f),
+                                shape = CircleShape,
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f))
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(26.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.ScreenLockRotation,
+                                        contentDescription = "Drehung gesperrt",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -277,7 +388,8 @@ class MainActivity : ComponentActivity() {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 24.dp)
+                        .navigationBarsPadding()
+                        .padding(bottom = 20.dp)
                 ) {
                     LiquidButton(
                         onClick = {
@@ -304,20 +416,36 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // --- HILFE & FEHLERMELDUNG DIALOG ---
-                Button(
-                    onClick = {
-                        // Öffnet direkt die GitHub Issues Seite deines Repositories im Browser
-                        val issuesUrl = "https://github.com/TheGamePRO112/THWLogin/issues/new"
-                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(issuesUrl)).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                if (showHelpDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showHelpDialog = false },
+                        title = { Text("Hilfe & Info") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("Version: $currentVersion\nScanne deinen THW-Barcode und verschiebe ihn vertikal an die gewünschte Position.")
+                                Button(
+                                    onClick = {
+                                        // Öffnet direkt die GitHub Issues Seite deines Repositories im Browser
+                                        val issuesUrl = "https://github.com/TheGamePRO112/THWLogin/issues/new"
+                                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(issuesUrl)).apply {
+                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        }
+                                        context.startActivity(browserIntent)
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.BugReport, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Problem / Fehler auf GitHub melden")
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showHelpDialog = false }) {
+                                Text("Schließen")
+                            }
                         }
-                        context.startActivity(browserIntent)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.BugReport, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Problem / Fehler auf GitHub melden")
+                    )
                 }
 
                 // --- UPDATE DIALOG ---
