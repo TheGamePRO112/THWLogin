@@ -1,57 +1,78 @@
 package com.example.thwlogin
 
-import android.animation.Animator
-import android.animation.ObjectAnimator
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
-import android.view.animation.DecelerateInterpolator
-import android.widget.ProgressBar
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 
-class SplashActivity : AppCompatActivity() {
+@SuppressLint("CustomSplashScreen")
+class SplashActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_splash)
 
-        supportActionBar?.hide()
+        setContent {
+            val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+            val scale by infiniteTransition.animateFloat(
+                initialValue = 0.92f,
+                targetValue = 1.08f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(900, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "scale"
+            )
 
-        // HIER könnten Sie initialen Code ausführen, der vor der Animation
-        // abgeschlossen sein muss (z.B. eine Konfiguration laden).
-        // In diesem einfachen Fall startet die Animation sofort.
-
-        val progressBar: ProgressBar = findViewById(R.id.loading_spinner)
-
-        // Animation für den Ladebalken erstellen
-        val animation = ObjectAnimator.ofInt(progressBar, "progress", 0, 100)
-        animation.duration = 2500 // 2.5 Sekunden
-        animation.interpolator = DecelerateInterpolator()
-
-        // Einen Listener hinzufügen, der auf das Ende der Animation reagiert.
-        // Das ersetzt den separaten Handler.
-        animation.addListener(object : Animator.AnimatorListener {
-            override fun onAnimationStart(animator: Animator) {
-                // Optional: Code, der beim Start der Animation ausgeführt wird.
-            }
-
-            override fun onAnimationEnd(animator: Animator) {
-                // Diese Methode wird aufgerufen, sobald die Animation beendet ist.
-                // Jetzt wechseln wir zur MainActivity.
-                val intent = Intent(this@SplashActivity, MainActivity::class.java)
-                startActivity(intent)
-                // Beende den Splash Screen, damit man nicht mit "zurück" hierherkommt.
+            LaunchedEffect(Unit) {
+                delay(1600) // Kurzer, flüssiger Splash
+                startActivity(Intent(this@SplashActivity, MainActivity::class.java))
                 finish()
             }
 
-            override fun onAnimationCancel(animator: Animator) {
-                // Optional: Code für den Fall, dass die Animation abgebrochen wird.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF003399), Color(0xFF001F5C), Color(0xFF0A0A0A))
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Image(
+                        painter = painterResource(id = R.drawable.thw_zahnrad),
+                        contentDescription = "THW Logo",
+                        modifier = Modifier
+                            .size(130.dp)
+                            .scale(scale)
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = "THW Login",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.5.sp
+                    )
+                }
             }
-
-            override fun onAnimationRepeat(animator: Animator) {
-                // Optional: Code für sich wiederholende Animationen.
-            }
-        })
-
-        // Starte die Animation
-        animation.start()
+        }
     }
 }

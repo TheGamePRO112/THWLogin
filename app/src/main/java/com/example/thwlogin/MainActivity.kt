@@ -1,201 +1,360 @@
 package com.example.thwlogin
 
-import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Bundle
-import android.view.MotionEvent
-import android.view.View
-import android.widget.Button
-import android.widget.ImageButton
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
-import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import com.kyant.backdrop.backdrops.rememberBackdrop
+import com.kyant.backdrop.catalog.components.LiquidButton
+import kotlin.math.roundToInt
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
 
-    // --- Views ---
-    private lateinit var barcodeAnzeige: ImageView
-    private lateinit var barcodeText: TextView
-    private lateinit var barcodeHinzufuegenButton: Button
-    private lateinit var movableBarcodeGroup: LinearLayout
-    private lateinit var infoButton: ImageButton
-    private lateinit var lockButton: ImageButton
-
-    // --- Drag & Drop State ---
-    private var initialTouchY: Float = 0f
-    private var initialBias: Float = 0f
-
-    // --- App Logic State ---
-    private var isBarcodeMovementLocked = false
-
+    private var onBarcodeScanned: ((String) -> Unit)? = null
     private val barcodeLauncher = registerForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
-            updateBarcode(result.contents)
+            onBarcodeScanned?.invoke(result.contents)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
 
-        setupViews()
-        loadSavedStates()
-        setupListeners()
-    }
+        setContent {
+            val context = LocalContext.current
+            val prefs = remember { context.getSharedPreferences("MeineBarcodeAppPrefs", Context.MODE_PRIVATE) }
+            val currentVersion = remember {
+                try {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.0"
+                } catch (_: Exception) { "1.0.0" }
+            }
 
-    private fun setupViews() {
-        barcodeAnzeige = findViewById(R.id.barcodeAnzeige)
-        barcodeText = findViewById(R.id.barcodeText)
-        barcodeHinzufuegenButton = findViewById(R.id.barcodeHinzufuegenButton)
-        movableBarcodeGroup = findViewById(R.id.movable_barcode_group)
-        infoButton = findViewById(R.id.info_button)
-        lockButton = findViewById(R.id.lock_button)
-    }
+            // States
+            var barcodeValue by remember { mutableStateOf(prefs.getString("letzterBarcode", "") ?: "") }
+            var barcodeBias by remember { mutableFloatStateOf(prefs.getFloat("barcode_position_bias", 0.08f).coerceIn(0f, 0.5f)) }
+            var isLocked by remember { mutableStateOf(prefs.getBoolean("barcode_lock_state", false)) }
+            var isRotationLocked by remember { mutableStateOf(prefs.getBoolean("rotation_lock_state", false)) }
+            var showMenu by remember { mutableStateOf(false) }
+            var showHelpDialog by remember { mutableStateOf(false) }
+            var availableUpdate by remember { mutableStateOf<ReleaseInfo?>(null) }
 
-    private fun loadSavedStates() {
-        ladeLetztenBarcode()
-        ladeBarcodePosition()
-        ladeLockState()
-    }
-
-    private fun setupListeners() {
-        barcodeHinzufuegenButton.setOnClickListener { starteScanner() }
-        setupInfoButtonListener()
-        setupLockButtonListener()
-        aktiviereDragAndDropListener()
-    }
-
-    private fun setupInfoButtonListener() {
-        infoButton.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("App-Info")
-                .setMessage("Allgemeine Funktion:\nScanne einen Barcode, um ihn auf dem Bildschirm anzuzeigen. Die App merkt sich immer den zuletzt gescannten Code.\n\nPosition ändern:\nLege deinen Finger auf den Barcode-Block und bewege ihn nach oben oder unten. Die Position wird automatisch gespeichert.\n\nPosition fixieren:\nDrücke das Schloss-Symbol oben rechts, um die Position zu sperren und ein versehentliches Verschieben zu verhindern.\n\nDesigned by Robert Haase")
-                .setPositiveButton("Verstanden", null)
-                .show()
-        }
-    }
-
-    private fun setupLockButtonListener() {
-        lockButton.setOnClickListener {
-            isBarcodeMovementLocked = !isBarcodeMovementLocked
-            speichereLockState(isBarcodeMovementLocked)
-            updateLockIcon()
-            val feedbackText = if (isBarcodeMovementLocked) "Position fixiert" else "Position entsperrt"
-            Toast.makeText(this, feedbackText, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun updateLockIcon() {
-        val iconRes = if (isBarcodeMovementLocked) R.drawable.ic_lock_closed else R.drawable.ic_lock_open
-        lockButton.setImageResource(iconRes)
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun aktiviereDragAndDropListener() {
-        movableBarcodeGroup.setOnTouchListener { view, event ->
-            if (isBarcodeMovementLocked) return@setOnTouchListener false
-
-            val params = view.layoutParams as ConstraintLayout.LayoutParams
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    initialTouchY = event.rawY
-                    initialBias = params.verticalBias
-                    true
+            // Drehung festlegen
+            LaunchedEffect(isRotationLocked) {
+                requestedOrientation = if (isRotationLocked) {
+                    ActivityInfo.SCREEN_ORIENTATION_LOCKED
+                } else {
+                    ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                 }
-                MotionEvent.ACTION_MOVE -> {
-                    val dy = event.rawY - initialTouchY
-                    val parentHeight = (view.parent as View).height
-                    val biasDelta = dy / parentHeight
-                    // NEU: Bewegung auf die obere Hälfte beschränken (0.0f = oben, 0.5f = mitte)
-                    params.verticalBias = (initialBias + biasDelta).coerceIn(0f, 0.5f)
-                    view.layoutParams = params
-                    true
+            }
+
+            // Scanner-Callback
+            onBarcodeScanned = { code ->
+                barcodeValue = code
+                prefs.edit().putString("letzterBarcode", code).apply()
+            }
+
+            // GitHub Update Prüfung beim Start
+            LaunchedEffect(Unit) {
+                availableUpdate = AppUpdater.checkUpdate(currentVersion)
+            }
+
+            // Barcode vorbereiten
+            val barcodeBitmap = remember(barcodeValue) {
+                if (barcodeValue.isNotEmpty()) erstelleEchtenBarcode(barcodeValue, context) else null
+            }
+
+            val backdrop = rememberBackdrop()
+
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF003399), Color(0xFF001A4D), Color(0xFF080808))
+                        )
+                    )
+                    .windowInsetsPadding(WindowInsets.systemBars) // Sicherer Abstand zu Notch & Navleiste
+            ) {
+                val screenHeightPx = constraints.maxHeight.toFloat()
+
+                // --- HEADER LEISTE (Menü-Knopf) ---
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box {
+                        LiquidButton(
+                            onClick = { showMenu = true },
+                            backdrop = backdrop
+                        ) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menü", tint = Color.White)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Menü", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        // Dropdown-Menü
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(if (isLocked) "Position entsperren" else "Position sperren") },
+                                leadingIcon = {
+                                    Icon(
+                                        if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    isLocked = !isLocked
+                                    prefs.edit().putBoolean("barcode_lock_state", isLocked).apply()
+                                    showMenu = false
+                                    Toast.makeText(context, if (isLocked) "Position fixiert" else "Position frei", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text(if (isRotationLocked) "Drehung entsperren" else "Drehung sperren") },
+                                leadingIcon = {
+                                    Icon(
+                                        if (isRotationLocked) Icons.Default.ScreenLockRotation else Icons.Default.ScreenRotation,
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    isRotationLocked = !isRotationLocked
+                                    prefs.edit().putBoolean("rotation_lock_state", isRotationLocked).apply()
+                                    showMenu = false
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Neuen Barcode scannen") },
+                                leadingIcon = { Icon(Icons.Default.QrCodeScanner, contentDescription = null) },
+                                onClick = {
+                                    showMenu = false
+                                    val options = ScanOptions().apply {
+                                        setPrompt("Barcode scannen")
+                                        setOrientationLocked(true)
+                                    }
+                                    barcodeLauncher.launch(options)
+                                }
+                            )
+
+                            HorizontalDivider()
+
+                            DropdownMenuItem(
+                                text = { Text("Hilfe & Info") },
+                                leadingIcon = { Icon(Icons.Default.HelpOutline, contentDescription = null) },
+                                onClick = {
+                                    showMenu = false
+                                    showHelpDialog = true
+                                }
+                            )
+                        }
+                    }
+
+                    // Kleiner Status-Indikator
+                    if (isLocked) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.15f),
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Lock, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Fixiert", color = Color.White, fontSize = 12.sp)
+                            }
+                        }
+                    }
                 }
-                MotionEvent.ACTION_UP -> {
-                    speichereBarcodePosition(params.verticalBias)
-                    view.performClick()
-                    true
+
+                // --- VERSCHIEBBARER BARCODE (Bis ganz nach oben = 0.0f möglich!) ---
+                val currentOffsetY = (barcodeBias * screenHeightPx).roundToInt()
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset { IntOffset(0, currentOffsetY) }
+                        .pointerInput(isLocked) {
+                            if (!isLocked) {
+                                detectVerticalDragGestures(
+                                    onDragEnd = {
+                                        prefs.edit().putFloat("barcode_position_bias", barcodeBias).apply()
+                                    }
+                                ) { _, dragAmount ->
+                                    val deltaBias = dragAmount / screenHeightPx
+                                    // 0.0f erlaubt das Schieben bis ganz an den oberen Rand!
+                                    barcodeBias = (barcodeBias + deltaBias).coerceIn(0.0f, 0.5f)
+                                }
+                            }
+                        }
+                        .padding(horizontal = 16.dp)
+                ) {
+                    if (barcodeBitmap != null) {
+                        Surface(
+                            shape = MaterialTheme.shapes.large,
+                            color = Color.White,
+                            shadowElevation = 10.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(14.dp)
+                            ) {
+                                Image(
+                                    bitmap = barcodeBitmap.asImageBitmap(),
+                                    contentDescription = "Barcode",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(110.dp),
+                                    contentScale = ContentScale.FillBounds
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = barcodeValue,
+                                    color = Color.Black,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+                        }
+                    } else {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.1f),
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.padding(24.dp)
+                        ) {
+                            Text(
+                                text = "Kein Barcode vorhanden.\nScanne einen Code über das Menü oder unten.",
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 15.sp,
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+                    }
                 }
-                else -> false
+
+                // --- UNTEN: SCANNER BUTTON (Liquid Glass) ---
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 24.dp)
+                ) {
+                    LiquidButton(
+                        onClick = {
+                            val options = ScanOptions().apply {
+                                setPrompt("Barcode scannen")
+                                setOrientationLocked(true)
+                            }
+                            barcodeLauncher.launch(options)
+                        },
+                        backdrop = backdrop,
+                        modifier = Modifier
+                            .fillMaxWidth(0.8f)
+                            .height(54.dp)
+                    ) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = Color.White)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Barcode scannen",
+                            color = Color.White,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // --- HILFE & FEHLERMELDUNG DIALOG ---
+                Button(
+                    onClick = {
+                        // Öffnet direkt die GitHub Issues Seite deines Repositories im Browser
+                        val issuesUrl = "https://github.com/TheGamePRO112/THWLogin/issues/new"
+                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(issuesUrl)).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(browserIntent)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.BugReport, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Problem / Fehler auf GitHub melden")
+                }
+
+                // --- UPDATE DIALOG ---
+                availableUpdate?.let { update ->
+                    AlertDialog(
+                        onDismissRequest = { availableUpdate = null },
+                        title = { Text("Update verfügbar!") },
+                        text = { Text("Eine neue Version (${update.version}) steht auf GitHub bereit.") },
+                        confirmButton = {
+                            Button(onClick = {
+                                AppUpdater.startDownload(context, update.downloadUrl)
+                                availableUpdate = null
+                            }) {
+                                Text("Aktualisieren")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { availableUpdate = null }) {
+                                Text("Später")
+                            }
+                        }
+                    )
+                }
             }
         }
     }
 
-    private fun starteScanner() {
-        val options = ScanOptions()
-        options.setPrompt("Barcode scannen")
-        options.setOrientationLocked(true)
-        barcodeLauncher.launch(options)
-    }
-
-    private fun updateBarcode(wert: String) {
-        try {
-            barcodeAnzeige.setImageBitmap(erstelleEchtenBarcode(wert))
-            barcodeText.text = wert
-            speichereLetztenBarcode(wert)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Fehler beim Erstellen des Barcodes", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun erstelleEchtenBarcode(wert: String): Bitmap {
-        val bitMatrix = MultiFormatWriter().encode(wert, BarcodeFormat.CODE_128, 800, 200)
-        val bitmap = Bitmap.createBitmap(800, 200, Bitmap.Config.ARGB_8888)
-        val thwBlue = ContextCompat.getColor(this, R.color.thw_blue)
-        val white = ContextCompat.getColor(this, R.color.white)
+    private fun erstelleEchtenBarcode(wert: String, context: Context): Bitmap {
+        val bitMatrix = MultiFormatWriter().encode(wert, BarcodeFormat.CODE_128, 800, 220)
+        val bitmap = Bitmap.createBitmap(800, 220, Bitmap.Config.ARGB_8888)
+        val thwBlue = ContextCompat.getColor(context, R.color.thw_blue)
+        val white = ContextCompat.getColor(context, R.color.white)
         for (x in 0 until 800) {
-            for (y in 0 until 200) {
+            for (y in 0 until 220) {
                 bitmap.setPixel(x, y, if (bitMatrix[x, y]) thwBlue else white)
             }
         }
         return bitmap
-    }
-
-    private fun getPrefs() = getSharedPreferences("MeineBarcodeAppPrefs", MODE_PRIVATE)
-
-    private fun speichereLetztenBarcode(wert: String) {
-        getPrefs().edit().putString("letzterBarcode", wert).apply()
-    }
-
-    private fun ladeLetztenBarcode() {
-        val letzterBarcode = getPrefs().getString("letzterBarcode", null)
-        if (!letzterBarcode.isNullOrEmpty()) {
-            updateBarcode(letzterBarcode)
-        } else {
-            barcodeText.text = ""
-        }
-    }
-
-    private fun speichereBarcodePosition(bias: Float) {
-        getPrefs().edit().putFloat("barcode_position_bias", bias).apply()
-    }
-
-    private fun ladeBarcodePosition() {
-        var bias = getPrefs().getFloat("barcode_position_bias", 0.05f)
-        // NEU: Stelle sicher, dass auch eine alte, gespeicherte Position das Limit respektiert
-        if (bias > 0.5f) {
-            bias = 0.5f
-        }
-        val params = movableBarcodeGroup.layoutParams as ConstraintLayout.LayoutParams
-        params.verticalBias = bias
-        movableBarcodeGroup.layoutParams = params
-    }
-
-    private fun speichereLockState(isLocked: Boolean) {
-        getPrefs().edit().putBoolean("barcode_lock_state", isLocked).apply()
-    }
-
-    private fun ladeLockState() {
-        isBarcodeMovementLocked = getPrefs().getBoolean("barcode_lock_state", false)
-        updateLockIcon()
     }
 }
