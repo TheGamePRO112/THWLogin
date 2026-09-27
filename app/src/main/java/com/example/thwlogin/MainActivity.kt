@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.journeyapps.barcodescanner.ScanContract
@@ -50,6 +51,7 @@ private fun LiquidButton(
     onClick: () -> Unit,
     @Suppress("UNUSED_PARAMETER") backdrop: Any,
     modifier: Modifier = Modifier,
+    isDarkMode: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
     Button(
@@ -57,10 +59,13 @@ private fun LiquidButton(
         modifier = modifier,
         shape = RoundedCornerShape(50),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color.White.copy(alpha = 0.18f),
-            contentColor = Color.White
+            containerColor = if (isDarkMode) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.65f),
+            contentColor = if (isDarkMode) Color.White else Color(0xFF003399)
         ),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+        border = BorderStroke(
+            1.dp,
+            if (isDarkMode) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.85f)
+        ),
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
         content = content
     )
@@ -93,6 +98,7 @@ class MainActivity : ComponentActivity() {
             }
 
             // States
+            var isDarkMode by remember { mutableStateOf(prefs.getBoolean("dark_mode_enabled", true)) }
             var barcodeValue by remember { mutableStateOf(prefs.getString("letzterBarcode", "") ?: "") }
             var barcodeBias by remember { mutableFloatStateOf(prefs.getFloat("barcode_position_bias", 0.08f).coerceIn(0f, 0.5f)) }
             var isLocked by remember { mutableStateOf(prefs.getBoolean("barcode_lock_state", false)) }
@@ -100,6 +106,82 @@ class MainActivity : ComponentActivity() {
             var showMenu by remember { mutableStateOf(false) }
             var showHelpDialog by remember { mutableStateOf(false) }
             var availableUpdate by remember { mutableStateOf<ReleaseInfo?>(null) }
+
+            // Statusleiste Icon-Farbe (hell/dunkel) anpassen
+            val window = (context as? ComponentActivity)?.window
+            SideEffect {
+                window?.let {
+                    WindowInsetsControllerCompat(it, it.decorView).isAppearanceLightStatusBars = !isDarkMode
+                }
+            }
+
+            // Dynamische Farben für Liquid Glass Theme
+            val bgGradient = if (isDarkMode) {
+                Brush.verticalGradient(
+                    listOf(Color(0xFF003399), Color(0xFF001A4D), Color(0xFF080808))
+                )
+            } else {
+                Brush.verticalGradient(
+                    listOf(Color(0xFFE4EFFB), Color(0xFFC8DEF8), Color(0xFFAECDF2))
+                )
+            }
+
+            val primaryTextColor = if (isDarkMode) Color.White else Color(0xFF002A73)
+            val iconTint = if (isDarkMode) Color.White else Color(0xFF003399)
+            val glassButtonBg = if (isDarkMode) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.65f)
+            val glassButtonBorder = if (isDarkMode) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.85f)
+
+            val menuBgBrush = if (isDarkMode) {
+                Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.24f),
+                        Color(0xFF001B48).copy(alpha = 0.82f)
+                    )
+                )
+            } else {
+                Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.92f),
+                        Color(0xFFD3E4F8).copy(alpha = 0.88f)
+                    )
+                )
+            }
+
+            val menuBorderBrush = if (isDarkMode) {
+                Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.55f),
+                        Color.White.copy(alpha = 0.15f)
+                    )
+                )
+            } else {
+                Brush.verticalGradient(
+                    listOf(
+                        Color.White,
+                        Color.White.copy(alpha = 0.50f)
+                    )
+                )
+            }
+
+            val menuDividerColor = if (isDarkMode) Color.White.copy(alpha = 0.2f) else Color(0xFF003399).copy(alpha = 0.15f)
+
+            val switchColors = if (isDarkMode) {
+                SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Color(0xFF0055FF),
+                    uncheckedThumbColor = Color.White.copy(alpha = 0.8f),
+                    uncheckedTrackColor = Color.White.copy(alpha = 0.2f),
+                    uncheckedBorderColor = Color.White.copy(alpha = 0.35f)
+                )
+            } else {
+                SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Color(0xFF003399),
+                    uncheckedThumbColor = Color(0xFF003399).copy(alpha = 0.7f),
+                    uncheckedTrackColor = Color.White.copy(alpha = 0.4f),
+                    uncheckedBorderColor = Color(0xFF003399).copy(alpha = 0.25f)
+                )
+            }
 
             // Drehung festlegen
             LaunchedEffect(isRotationLocked) {
@@ -131,11 +213,7 @@ class MainActivity : ComponentActivity() {
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color(0xFF003399), Color(0xFF001A4D), Color(0xFF080808))
-                        )
-                    )
+                    .background(bgGradient)
             ) {
                 val screenHeightPx = constraints.maxHeight.toFloat()
 
@@ -177,7 +255,7 @@ class MainActivity : ComponentActivity() {
                             Spacer(modifier = Modifier.height(3.dp))
                             Text(
                                 text = barcodeValue,
-                                color = Color.White,
+                                color = primaryTextColor,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.2.sp
@@ -185,15 +263,16 @@ class MainActivity : ComponentActivity() {
                         }
                     } else {
                         Surface(
-                            color = Color.White.copy(alpha = 0.1f),
+                            color = if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.6f),
                             shape = MaterialTheme.shapes.medium,
+                            border = BorderStroke(1.dp, if (isDarkMode) Color.Transparent else Color.White.copy(alpha = 0.8f)),
                             modifier = Modifier
                                 .padding(horizontal = 24.dp)
                                 .padding(top = 80.dp)
                         ) {
                             Text(
                                 text = "Kein Barcode vorhanden.\nScanne einen Code über den Button unten.",
-                                color = Color.White.copy(alpha = 0.8f),
+                                color = if (isDarkMode) Color.White.copy(alpha = 0.8f) else Color(0xFF002970),
                                 fontSize = 15.sp,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(16.dp)
@@ -216,13 +295,13 @@ class MainActivity : ComponentActivity() {
                             onClick = { showMenu = true },
                             modifier = Modifier
                                 .size(36.dp)
-                                .background(Color.White.copy(alpha = 0.18f), CircleShape)
-                                .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+                                .background(glassButtonBg, CircleShape)
+                                .border(1.dp, glassButtonBorder, CircleShape)
                         ) {
                             Icon(
                                 Icons.Default.Menu,
                                 contentDescription = "Menü",
-                                tint = Color.White,
+                                tint = iconTint,
                                 modifier = Modifier.size(19.dp)
                             )
                         }
@@ -234,30 +313,17 @@ class MainActivity : ComponentActivity() {
                             shape = RoundedCornerShape(20.dp),
                             containerColor = Color.Transparent,
                             shadowElevation = 14.dp,
-                            border = BorderStroke(
-                                1.dp,
-                                Brush.verticalGradient(
-                                    listOf(
-                                        Color.White.copy(alpha = 0.55f),
-                                        Color.White.copy(alpha = 0.15f)
-                                    )
-                                )
-                            ),
+                            border = BorderStroke(1.dp, menuBorderBrush),
                             modifier = Modifier
                                 .background(
-                                    brush = Brush.verticalGradient(
-                                        listOf(
-                                            Color.White.copy(alpha = 0.24f),
-                                            Color(0xFF001B48).copy(alpha = 0.82f)
-                                        )
-                                    ),
+                                    brush = menuBgBrush,
                                     shape = RoundedCornerShape(20.dp)
                                 )
                         ) {
                             val glassItemColors = MenuDefaults.itemColors(
-                                textColor = Color.White,
-                                leadingIconColor = Color.White,
-                                trailingIconColor = Color.White
+                                textColor = primaryTextColor,
+                                leadingIconColor = primaryTextColor,
+                                trailingIconColor = primaryTextColor
                             )
 
                             DropdownMenuItem(
@@ -273,13 +339,7 @@ class MainActivity : ComponentActivity() {
                                         checked = isLocked,
                                         onCheckedChange = null,
                                         modifier = Modifier.padding(start = 12.dp),
-                                        colors = SwitchDefaults.colors(
-                                            checkedThumbColor = Color.White,
-                                            checkedTrackColor = Color(0xFF0055FF),
-                                            uncheckedThumbColor = Color.White.copy(alpha = 0.8f),
-                                            uncheckedTrackColor = Color.White.copy(alpha = 0.2f),
-                                            uncheckedBorderColor = Color.White.copy(alpha = 0.35f)
-                                        )
+                                        colors = switchColors
                                     )
                                 },
                                 colors = glassItemColors,
@@ -303,13 +363,7 @@ class MainActivity : ComponentActivity() {
                                         checked = isRotationLocked,
                                         onCheckedChange = null,
                                         modifier = Modifier.padding(start = 12.dp),
-                                        colors = SwitchDefaults.colors(
-                                            checkedThumbColor = Color.White,
-                                            checkedTrackColor = Color(0xFF0055FF),
-                                            uncheckedThumbColor = Color.White.copy(alpha = 0.8f),
-                                            uncheckedTrackColor = Color.White.copy(alpha = 0.2f),
-                                            uncheckedBorderColor = Color.White.copy(alpha = 0.35f)
-                                        )
+                                        colors = switchColors
                                     )
                                 },
                                 colors = glassItemColors,
@@ -320,9 +374,33 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
 
+                            DropdownMenuItem(
+                                text = { Text("Dunkelmodus", fontWeight = FontWeight.Medium) },
+                                leadingIcon = {
+                                    Icon(
+                                        if (isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
+                                        contentDescription = null
+                                    )
+                                },
+                                trailingIcon = {
+                                    Switch(
+                                        checked = isDarkMode,
+                                        onCheckedChange = null,
+                                        modifier = Modifier.padding(start = 12.dp),
+                                        colors = switchColors
+                                    )
+                                },
+                                colors = glassItemColors,
+                                onClick = {
+                                    isDarkMode = !isDarkMode
+                                    prefs.edit().putBoolean("dark_mode_enabled", isDarkMode).apply()
+                                    Toast.makeText(context, if (isDarkMode) "Dunkelmodus aktiv" else "Hellmodus aktiv", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+
                             HorizontalDivider(
                                 modifier = Modifier.padding(horizontal = 12.dp),
-                                color = Color.White.copy(alpha = 0.2f),
+                                color = menuDividerColor,
                                 thickness = 1.dp
                             )
 
@@ -345,9 +423,9 @@ class MainActivity : ComponentActivity() {
                     ) {
                         if (isLocked) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.18f),
+                                color = glassButtonBg,
                                 shape = CircleShape,
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f))
+                                border = BorderStroke(1.dp, glassButtonBorder)
                             ) {
                                 Box(
                                     modifier = Modifier.size(26.dp),
@@ -356,7 +434,7 @@ class MainActivity : ComponentActivity() {
                                     Icon(
                                         Icons.Default.Lock,
                                         contentDescription = "Position fixiert",
-                                        tint = Color.White,
+                                        tint = iconTint,
                                         modifier = Modifier.size(13.dp)
                                     )
                                 }
@@ -364,9 +442,9 @@ class MainActivity : ComponentActivity() {
                         }
                         if (isRotationLocked) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.18f),
+                                color = glassButtonBg,
                                 shape = CircleShape,
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f))
+                                border = BorderStroke(1.dp, glassButtonBorder)
                             ) {
                                 Box(
                                     modifier = Modifier.size(26.dp),
@@ -375,7 +453,7 @@ class MainActivity : ComponentActivity() {
                                     Icon(
                                         Icons.Default.ScreenLockRotation,
                                         contentDescription = "Drehung gesperrt",
-                                        tint = Color.White,
+                                        tint = iconTint,
                                         modifier = Modifier.size(13.dp)
                                     )
                                 }
@@ -400,15 +478,20 @@ class MainActivity : ComponentActivity() {
                             barcodeLauncher.launch(options)
                         },
                         backdrop = backdrop,
+                        isDarkMode = isDarkMode,
                         modifier = Modifier
                             .fillMaxWidth(0.8f)
                             .height(54.dp)
                     ) {
-                        Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = Color.White)
+                        Icon(
+                            Icons.Default.QrCodeScanner,
+                            contentDescription = null,
+                            tint = if (isDarkMode) Color.White else Color(0xFF003399)
+                        )
                         Spacer(Modifier.width(8.dp))
                         Text(
                             text = "Barcode scannen",
-                            color = Color.White,
+                            color = if (isDarkMode) Color.White else Color(0xFF003399),
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold
                         )
