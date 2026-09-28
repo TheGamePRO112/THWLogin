@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -31,6 +32,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -104,6 +106,8 @@ class MainActivity : ComponentActivity() {
             var isRotationLocked by remember { mutableStateOf(prefs.getBoolean("rotation_lock_state", true)) }
             var showMenu by remember { mutableStateOf(false) }
             var showHelpDialog by remember { mutableStateOf(false) }
+            var showManualEntryDialog by remember { mutableStateOf(false) }
+            var manualBarcodeText by remember { mutableStateOf("") }
             var availableUpdate by remember { mutableStateOf<ReleaseInfo?>(null) }
 
             // Statusleiste Icon-Farbe (hell/dunkel) anpassen
@@ -395,6 +399,17 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
 
+                            DropdownMenuItem(
+                                text = { Text("Barcode manuell eingeben", fontWeight = FontWeight.Medium) },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                colors = glassItemColors,
+                                onClick = {
+                                    showMenu = false
+                                    manualBarcodeText = barcodeValue
+                                    showManualEntryDialog = true
+                                }
+                            )
+
                             HorizontalDivider(
                                 modifier = Modifier.padding(horizontal = 12.dp),
                                 color = menuDividerColor,
@@ -549,6 +564,48 @@ class MainActivity : ComponentActivity() {
                         confirmButton = {
                             TextButton(onClick = { showHelpDialog = false }) {
                                 Text("Schließen")
+                            }
+                        }
+                    )
+                }
+
+                // --- MANUELLE BARCODE EINGABE DIALOG ---
+                if (showManualEntryDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showManualEntryDialog = false },
+                        title = { Text("Barcode manuell eingeben") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Gib die Barcode-Nummer ein (z. B. 03540286-99):")
+                                OutlinedTextField(
+                                    value = manualBarcodeText,
+                                    onValueChange = { manualBarcodeText = it },
+                                    label = { Text("Barcode") },
+                                    placeholder = { Text("12345678-99") },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    val trimmed = manualBarcodeText.trim()
+                                    if (trimmed.isNotEmpty()) {
+                                        barcodeValue = trimmed
+                                        prefs.edit().putString("letzterBarcode", trimmed).apply()
+                                        Toast.makeText(context, "Barcode gespeichert", Toast.LENGTH_SHORT).show()
+                                    }
+                                    showManualEntryDialog = false
+                                }
+                            ) {
+                                Text("Speichern")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showManualEntryDialog = false }) {
+                                Text("Abbrechen")
                             }
                         }
                     )

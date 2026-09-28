@@ -5,13 +5,14 @@ Eine moderne, benutzerfreundliche Android-App zum schnellen Scannen, Verwalten u
 ![Android SDK](https://img.shields.io/badge/Android-API%2026%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)
-![Version](https://img.shields.io/badge/Version-v2.0.1-003399?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-v2.0.2-003399?style=for-the-badge)
 
 ---
 
 ## 🚀 Funktionen
 
 - 📸 **Kamera-Barcode-Scanner**: Schnelles Einscannen von Barcodes mit integriertem ZXing-Scanner.
+- ⌨️ **Manuelle Barcode-Eingabe**: Für Geräte ohne Kamera oder zum manuellen Eintragen kann die Barcode-Nummer (z. B. `03540286-99`) direkt über das Menü eingegeben werden.
 - ↕️ **Stufenlos verschiebbar**: Der Barcode kann per Drag-and-Drop flexibel auf dem Bildschirm verschoben werden (bis ganz an den oberen Rand), um optimal an Scanner-Gegebenheiten angepasst zu werden.
 - 🔒 **Position & Drehung sperren**:
   - *Position fixieren*: Verhindert versehentliches Verrutschen beim Anfassen des Smartphones.
@@ -35,11 +36,23 @@ Eine moderne, benutzerfreundliche Android-App zum schnellen Scannen, Verwalten u
 
 ### APK direkt herunterladen
 1. Lade die aktuellste `.apk`-Datei unter [GitHub Releases](https://github.com/TheGamePRO112/THWLogin/releases) herunter.
-2. Öffne die heruntergeladene Datei auf deinem Android-Gerät und bestätige die Installation (ggf. „Installation aus unbekannten Quellen“ erlauben).
+2. Öffne die heruntergeladene Datei auf deinem Android-Gerät und bestätige die Installation.
+
+### 🛡️ Hinweis zu Google Play Protect (Unbekannte Quellen)
+Da die App direkt als APK-Datei heruntergeladen wird und nicht aus dem Google Play Store stammt, blendet Google Play Protect beim ersten Installieren möglicherweise ein Warnfenster ein:
+
+1. Klicke im Warnfenster auf **„Weitere Details“** (siehe Screenshot 1).
+2. Klicke anschließend unten auf **„Trotzdem installieren“** (siehe Screenshot 2).
+
+| 1. Weitere Details anklicken | 2. Trotzdem installieren wählen |
+| :---: | :---: |
+| *(Play Protect Screenshot 1 per Drag & Drop hier einfügen)* | *(Play Protect Screenshot 2 per Drag & Drop hier einfügen)* |
+
+---
 
 ### Systemvoraussetzungen
 - **Android OS**: Android 8.0 (API Level 26) oder neuer
-- **Berechtigungen**: Kamera (nur zum Scannen von Barcodes)
+- **Berechtigungen**: Kamera (optional, nur zum Scannen von Barcodes)
 
 ---
 
