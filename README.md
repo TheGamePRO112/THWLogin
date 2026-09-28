@@ -45,8 +45,8 @@ Da die App direkt als APK-Datei heruntergeladen wird und nicht aus dem Google Pl
 2. Klicke anschließend unten auf **„Trotzdem installieren“** (siehe Screenshot 2).
 
 | 1. Weitere Details anklicken | 2. Trotzdem installieren wählen |
-| <img width="200" alt="Screenshot_2026-09-28-16-46-14-366_com android vending" src="https://github.com/user-attachments/assets/7a8ac006-e912-4aed-875a-5015e08f696f" /> | <img width="200" alt="Screenshot_2026-09-28-16-46-17-503_com android vending" src="https://github.com/user-attachments/assets/5f5bc29b-970f-47a9-9cab-0fc4520a8e64" /> |
-| *(Play Protect Screenshot 1 per Drag & Drop hier einfügen)* | *(Play Protect Screenshot 2 per Drag & Drop hier einfügen)* |
+| :---: | :---: |
+| <img width="200" alt="Screenshot_2026-09-28-16-46-14-366_com android vending" src="https://github.com/user-attachments/assets/8caa24aa-f7bd-4732-9f22-8a254f6702cd" /> | <img width="200" alt="Screenshot_2026-09-28-16-46-17-503_com android vending" src="https://github.com/user-attachments/assets/b8e911a9-5f9e-4867-966b-889412d23f5e" /> |
 
 ---
 
