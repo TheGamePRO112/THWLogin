@@ -85,8 +85,8 @@ class MainActivity : ComponentActivity() {
             val prefs = remember { context.getSharedPreferences("MeineBarcodeAppPrefs", Context.MODE_PRIVATE) }
             val currentVersion = remember {
                 try {
-                    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "2.0.0"
-                } catch (_: Exception) { "2.0.0" }
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "2.0.1"
+                } catch (_: Exception) { "2.0.1" }
             }
 
             // Initialer Default für Drehsperre = standardmäßig aktiviert
