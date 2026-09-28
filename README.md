@@ -27,7 +27,7 @@ Eine moderne, benutzerfreundliche Android-App zum schnellen Scannen, Verwalten u
 
 | Dunkelmodus | Menü & Einstellungen | Hellmodus |
 | :---: | :---: | :---: |
-| <img src="docs/screenshots/dark_mode.png" width="250"> | <img src="docs/screenshots/menu.png" width="250"> | <img src="docs/screenshots/light_mode.png" width="250"> |
+| <img width="1220" height="2656" alt="Screenshot_2026-09-28-16-06-25-563_com example thwlogin" src="https://github.com/user-attachments/assets/61911870-fcd7-41d2-9bd7-cee86667d5a1" /> | <img width="1220" height="2656" alt="Screenshot_2026-09-28-16-06-25-563_com example thwlogin" src="https://github.com/user-attachments/assets/201eca87-e63c-4071-95f9-74576c6673c8" /> | <img width="1220" height="2656" alt="Screenshot_2026-09-28-16-06-33-200_com example thwlogin" src="https://github.com/user-attachments/assets/1600fbf0-6dca-4307-a06e-2e79fb4b1dfb" /> |
 
 ---
 
