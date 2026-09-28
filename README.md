@@ -12,7 +12,7 @@ Eine moderne, benutzerfreundliche Android-App zum schnellen Scannen, Verwalten u
 ## 🚀 Funktionen
 
 - 📸 **Kamera-Barcode-Scanner**: Schnelles Einscannen von Barcodes mit integriertem ZXing-Scanner.
-- ⌨️ **Manuelle Barcode-Eingabe**: Für Geräte ohne Kamera oder zum manuellen Eintragen kann die Barcode-Nummer (z. B. `03540286-99`) direkt über das Menü eingegeben werden.
+- ⌨️ **Manuelle Barcode-Eingabe**: Für Geräte ohne Kamera oder zum manuellen Eintragen kann die Barcode-Nummer (z. B. `12345678-99`) direkt über das Menü eingegeben werden.
 - ↕️ **Stufenlos verschiebbar**: Der Barcode kann per Drag-and-Drop flexibel auf dem Bildschirm verschoben werden (bis ganz an den oberen Rand), um optimal an Scanner-Gegebenheiten angepasst zu werden.
 - 🔒 **Position & Drehung sperren**:
   - *Position fixieren*: Verhindert versehentliches Verrutschen beim Anfassen des Smartphones.
@@ -46,7 +46,7 @@ Da die App direkt als APK-Datei heruntergeladen wird und nicht aus dem Google Pl
 
 | 1. Weitere Details anklicken | 2. Trotzdem installieren wählen |
 | :---: | :---: |
-| *(Play Protect Screenshot 1 per Drag & Drop hier einfügen)* | *(Play Protect Screenshot 2 per Drag & Drop hier einfügen)* |
+| <img width="200" alt="Screenshot_2026-09-28-16-46-14-366_com android vending" src="https://github.com/user-attachments/assets/8caa24aa-f7bd-4732-9f22-8a254f6702cd" /> | <img width="200" alt="Screenshot_2026-09-28-16-46-17-503_com android vending" src="https://github.com/user-attachments/assets/b8e911a9-5f9e-4867-966b-889412d23f5e" /> |
 
 ---
 

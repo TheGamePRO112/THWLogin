@@ -576,14 +576,16 @@ class MainActivity : ComponentActivity() {
                         title = { Text("Barcode manuell eingeben") },
                         text = {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Gib die Barcode-Nummer ein (z. B. 03540286-99):")
+                                Text("Gib die Barcode-Nummer ein (z. B. 12345678-99):")
                                 OutlinedTextField(
                                     value = manualBarcodeText,
-                                    onValueChange = { manualBarcodeText = it },
+                                    onValueChange = { input ->
+                                        manualBarcodeText = input.filter { it.isDigit() || it == '-' }
+                                    },
                                     label = { Text("Barcode") },
                                     placeholder = { Text("12345678-99") },
                                     singleLine = true,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
