@@ -41,6 +41,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Composable
@@ -98,6 +99,8 @@ class MainActivity : ComponentActivity() {
             }
 
             // States
+            val coroutineScope = rememberCoroutineScope()
+            var isCheckingUpdate by remember { mutableStateOf(false) }
             var isDarkMode by remember { mutableStateOf(prefs.getBoolean("dark_mode_enabled", true)) }
             var barcodeValue by remember { mutableStateOf(prefs.getString("letzterBarcode", "") ?: "") }
             var barcodeBias by remember { mutableFloatStateOf(prefs.getFloat("barcode_position_bias", 0.08f).coerceIn(0f, 0.5f)) }
@@ -506,6 +509,33 @@ class MainActivity : ComponentActivity() {
                         text = {
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text("Version: $currentVersion\nScanne deinen THW-Barcode und verschiebe ihn vertikal an die gewünschte Position.")
+
+                                OutlinedButton(
+                                    onClick = {
+                                        isCheckingUpdate = true
+                                        coroutineScope.launch {
+                                            val update = AppUpdater.checkUpdate(currentVersion)
+                                            isCheckingUpdate = false
+                                            if (update != null) {
+                                                showHelpDialog = false
+                                                availableUpdate = update
+                                            } else {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Kein Update gefunden (v$currentVersion ist aktuell)",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        }
+                                    },
+                                    enabled = !isCheckingUpdate,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.SystemUpdate, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(if (isCheckingUpdate) "Prüfe..." else "Nach Updates suchen")
+                                }
+
                                 Button(
                                     onClick = {
                                         // Öffnet direkt die GitHub Issues Seite deines Repositories im Browser
