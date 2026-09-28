@@ -1,0 +1,10 @@
+{
+  "name": "THW-Login",
+  "description": "THW barcode scanner and display login app",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

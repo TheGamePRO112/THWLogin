@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Hintergrund des Ladebalkens (die "leere" Spur) -->
+    <item android:id="@android:id/background">
+        <shape android:shape="rectangle">
+            <corners android:radius="6dp" />
+            <solid android:color="#424242" /> <!-- Dunkelgrauer Hintergrund -->
+        </shape>
+    </item>
+
+    <!-- Der eigentliche Fortschrittsbalken -->
+    <item android:id="@android:id/progress">
+        <clip>
+            <shape android:shape="rectangle">
+                <corners android:radius="6dp" />
+                <!-- Farbverlauf für einen modernen Look im THW-Blau -->
+                <gradient
+                        android:angle="0"
+                        android:endColor="#000F75"
+                        android:startColor="#00529B"
+                        android:type="linear" />
+            </shape>
+        </clip>
+    </item>
+
+</layer-list>
