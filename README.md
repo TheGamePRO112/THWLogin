@@ -25,9 +25,9 @@ Eine moderne, benutzerfreundliche Android-App zum schnellen Scannen, Verwalten u
 
 ## 📱 Screenshots
 
-| Dunkelmodus (Barcode fixiert) | Menü & Einstellungen | Hellmodus |
+| Dunkelmodus | Menü & Einstellungen | Hellmodus |
 | :---: | :---: | :---: |
-| *(Screenshot hier einfügen)* | *(Screenshot hier einfügen)* | *(Screenshot hier einfügen)* |
+| <img src="docs/screenshots/dark_mode.png" width="250"> | <img src="docs/screenshots/menu.png" width="250"> | <img src="docs/screenshots/light_mode.png" width="250"> |
 
 ---
 
