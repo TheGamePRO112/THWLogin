@@ -104,6 +104,8 @@ class MainActivity : ComponentActivity() {
             var barcodeBias by remember { mutableFloatStateOf(prefs.getFloat("barcode_position_bias", 0.08f).coerceIn(0f, 0.5f)) }
             var isLocked by remember { mutableStateOf(prefs.getBoolean("barcode_lock_state", false)) }
             var isRotationLocked by remember { mutableStateOf(prefs.getBoolean("rotation_lock_state", true)) }
+            var isAutoUpdateEnabled by remember { mutableStateOf(prefs.getBoolean("auto_update_enabled", true)) }
+            var isWidgetVertical by remember { mutableStateOf(prefs.getBoolean("widget_is_vertical", false)) }
             var showMenu by remember { mutableStateOf(false) }
             var showHelpDialog by remember { mutableStateOf(false) }
             var showManualEntryDialog by remember { mutableStateOf(false) }
@@ -199,11 +201,14 @@ class MainActivity : ComponentActivity() {
             onBarcodeScanned = { code ->
                 barcodeValue = code
                 prefs.edit().putString("letzterBarcode", code).apply()
+                BarcodeWidgetProvider.updateAllWidgets(context)
             }
 
-            // GitHub Update Prüfung beim Start
-            LaunchedEffect(Unit) {
-                availableUpdate = AppUpdater.checkUpdate(currentVersion)
+            // GitHub Update Prüfung beim Start (falls aktiviert)
+            LaunchedEffect(isAutoUpdateEnabled) {
+                if (isAutoUpdateEnabled) {
+                    availableUpdate = AppUpdater.checkUpdate(currentVersion)
+                }
             }
 
             // Barcode vorbereiten
@@ -410,6 +415,63 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
 
+                            DropdownMenuItem(
+                                text = { Text("Auto-Update-Prüfung", fontWeight = FontWeight.Medium) },
+                                leadingIcon = {
+                                    Icon(
+                                        if (isAutoUpdateEnabled) Icons.Default.SystemUpdate else Icons.Default.SyncDisabled,
+                                        contentDescription = null
+                                    )
+                                },
+                                trailingIcon = {
+                                    Switch(
+                                        checked = isAutoUpdateEnabled,
+                                        onCheckedChange = null,
+                                        modifier = Modifier.padding(start = 12.dp),
+                                        colors = switchColors
+                                    )
+                                },
+                                colors = glassItemColors,
+                                onClick = {
+                                    isAutoUpdateEnabled = !isAutoUpdateEnabled
+                                    prefs.edit().putBoolean("auto_update_enabled", isAutoUpdateEnabled).apply()
+                                    Toast.makeText(
+                                        context,
+                                        if (isAutoUpdateEnabled) "Automatische Update-Prüfung aktiv" else "Automatische Update-Prüfung deaktiviert",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Widget vertikal drehen", fontWeight = FontWeight.Medium) },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.CropRotate,
+                                        contentDescription = null
+                                    )
+                                },
+                                trailingIcon = {
+                                    Switch(
+                                        checked = isWidgetVertical,
+                                        onCheckedChange = null,
+                                        modifier = Modifier.padding(start = 12.dp),
+                                        colors = switchColors
+                                    )
+                                },
+                                colors = glassItemColors,
+                                onClick = {
+                                    isWidgetVertical = !isWidgetVertical
+                                    prefs.edit().putBoolean("widget_is_vertical", isWidgetVertical).apply()
+                                    BarcodeWidgetProvider.updateAllWidgets(context)
+                                    Toast.makeText(
+                                        context,
+                                        if (isWidgetVertical) "Widget vertikal ausgerichtet" else "Widget horizontal ausgerichtet",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            )
+
                             HorizontalDivider(
                                 modifier = Modifier.padding(horizontal = 12.dp),
                                 color = menuDividerColor,
@@ -484,8 +546,9 @@ class MainActivity : ComponentActivity() {
                     LiquidButton(
                         onClick = {
                             val options = ScanOptions().apply {
-                                setPrompt("Barcode scannen")
+                                setPrompt("Barcode scannen\n(Kamera fokussiert automatisch)")
                                 setOrientationLocked(true)
+                                setCaptureActivity(CustomCaptureActivity::class.java)
                             }
                             barcodeLauncher.launch(options)
                         },
@@ -597,6 +660,7 @@ class MainActivity : ComponentActivity() {
                                     if (trimmed.isNotEmpty()) {
                                         barcodeValue = trimmed
                                         prefs.edit().putString("letzterBarcode", trimmed).apply()
+                                        BarcodeWidgetProvider.updateAllWidgets(context)
                                         Toast.makeText(context, "Barcode gespeichert", Toast.LENGTH_SHORT).show()
                                     }
                                     showManualEntryDialog = false
