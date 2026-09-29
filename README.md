@@ -31,7 +31,7 @@ Eine moderne, benutzerfreundliche Android-App zum schnellen Scannen, Verwalten u
 ### App
 | Dunkelmodus | Menü & Einstellungen | Hellmodus |
 | :---: | :---: | :---: |
-| <img width="400" alt="Screenshot_2026-09-28-16-06-25-563_com example thwlogin" src="https://github.com/user-attachments/assets/61911870-fcd7-41d2-9bd7-cee86667d5a1" /> | <img width="600"  alt="Screenshot_2026-09-29-20-00-39-738_com example thwlogin" src="https://github.com/user-attachments/assets/77d1d4bf-acc4-41d7-ba78-957fad5d84ac" /> | <img width="400" alt="Screenshot_2026-09-28-16-06-33-200_com example thwlogin" src="https://github.com/user-attachments/assets/1600fbf0-6dca-4307-a06e-2e79fb4b1dfb" /> |
+| <img width="400" alt="Screenshot_2026-09-28-16-06-25-563_com example thwlogin" src="https://github.com/user-attachments/assets/61911870-fcd7-41d2-9bd7-cee86667d5a1" /> | <img width="400"  alt="Screenshot_2026-09-29-20-00-39-738_com example thwlogin" src="https://github.com/user-attachments/assets/77d1d4bf-acc4-41d7-ba78-957fad5d84ac" /> | <img width="400" alt="Screenshot_2026-09-28-16-06-33-200_com example thwlogin" src="https://github.com/user-attachments/assets/1600fbf0-6dca-4307-a06e-2e79fb4b1dfb" /> |
 
 ### Home-Screen Widget
 | Horizontal | Vertikal (90° gedreht) |
