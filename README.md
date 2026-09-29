@@ -31,12 +31,12 @@ Eine moderne, benutzerfreundliche Android-App zum schnellen Scannen, Verwalten u
 ### App
 | Dunkelmodus | Menü & Einstellungen | Hellmodus |
 | :---: | :---: | :---: |
-| <img width="400" alt="Screenshot_2026-09-28-16-06-25-563_com example thwlogin" src="https://github.com/user-attachments/assets/61911870-fcd7-41d2-9bd7-cee86667d5a1" /> | <img width="400" alt="Screenshot_2026-09-28-16-06-41-481_com example thwlogin" src="https://github.com/user-attachments/assets/8ab0e965-4e9c-4e18-bae8-1cb3e5395c7f" /> | <img width="400" alt="Screenshot_2026-09-28-16-06-33-200_com example thwlogin" src="https://github.com/user-attachments/assets/1600fbf0-6dca-4307-a06e-2e79fb4b1dfb" /> |
+| <img width="400" alt="Screenshot_2026-09-28-16-06-25-563_com example thwlogin" src="https://github.com/user-attachments/assets/61911870-fcd7-41d2-9bd7-cee86667d5a1" /> | <img width="996" height="1230" alt="Screenshot_2026-09-29-20-00-39-738_com example thwlogin" src="https://github.com/user-attachments/assets/77d1d4bf-acc4-41d7-ba78-957fad5d84ac" /> | <img width="400" alt="Screenshot_2026-09-28-16-06-33-200_com example thwlogin" src="https://github.com/user-attachments/assets/1600fbf0-6dca-4307-a06e-2e79fb4b1dfb" /> |
 
 ### Home-Screen Widget
 | Horizontal | Vertikal (90° gedreht) |
 | :---: | :---: |
-| *(Widget Screenshot Horizontal hier einfügen)* | *(Widget Screenshot Vertikal hier einfügen)* |
+| <img width="600" alt="Screenshot_2026-09-29-20-00-14-137_com miui home" src="https://github.com/user-attachments/assets/c5edbc48-fc15-48f3-b6a1-bb132780f148" /> | <img width="300" alt="Screenshot_2026-09-29-20-00-25-403_com miui home" src="https://github.com/user-attachments/assets/2d6b41ac-a717-4e45-b1d2-b3fdf478ead2" /> |
 
 ---
 
