@@ -1,15 +1,20 @@
 package com.example.thwlogin
 
+import android.Manifest
 import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -42,6 +47,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.journeyapps.barcodescanner.ScanContract
@@ -129,16 +136,50 @@ class MainActivity : ComponentActivity() {
             var showEditEntryDialog by remember { mutableStateOf(false) }
             var workEntriesList by remember { mutableStateOf(WorkTimeManager.getEntries(context)) }
 
-            // Live Timer Ticker
+            // Notification Permission Launcher for Android 13+
+            val notificationPermissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { _ -> }
+
+            LaunchedEffect(Unit) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+            }
+
+            // Sync with Lifecycle (when returning from Notification stop action)
+            DisposableEffect(Unit) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        isTrackingWork = WorkTimeManager.isTracking(context)
+                        trackingStartTime = WorkTimeManager.getStartTimeMillis(context)
+                        workEntriesList = WorkTimeManager.getEntries(context)
+                    }
+                }
+                val lifecycle = (context as? ComponentActivity)?.lifecycle
+                lifecycle?.addObserver(observer)
+                onDispose {
+                    lifecycle?.removeObserver(observer)
+                }
+            }
+
+            // Live Timer Ticker & Notification Update
             LaunchedEffect(isTrackingWork, trackingStartTime) {
-                if (isTrackingWork && trackingStartTime > 0L) {
-                    while (true) {
+                if (isTrackingWork && WorkTimeManager.isTracking(context) && trackingStartTime > 0L) {
+                    WorkTimeNotificationHelper.showOrUpdateNotification(context, trackingStartTime)
+                    while (isTrackingWork && WorkTimeManager.isTracking(context)) {
                         val diff = (System.currentTimeMillis() - trackingStartTime) / 1000
                         elapsedSeconds = maxOf(0L, diff)
                         delay(1000)
                     }
-                } else {
+                }
+                if (!WorkTimeManager.isTracking(context)) {
+                    isTrackingWork = false
+                    trackingStartTime = 0L
                     elapsedSeconds = 0L
+                    WorkTimeNotificationHelper.cancelNotification(context)
                 }
             }
 
@@ -719,6 +760,7 @@ class MainActivity : ComponentActivity() {
                                 onClick = {
                                     if (isTrackingWork) {
                                         val entry = WorkTimeManager.stopTracking(context)
+                                        WorkTimeNotificationHelper.cancelNotification(context)
                                         isTrackingWork = false
                                         trackingStartTime = 0L
                                         elapsedSeconds = 0L
@@ -730,7 +772,9 @@ class MainActivity : ComponentActivity() {
                                     } else {
                                         WorkTimeManager.startTracking(context)
                                         isTrackingWork = true
-                                        trackingStartTime = System.currentTimeMillis()
+                                        val now = System.currentTimeMillis()
+                                        trackingStartTime = now
+                                        WorkTimeNotificationHelper.showOrUpdateNotification(context, now)
                                         Toast.makeText(context, "Dienst gestartet", Toast.LENGTH_SHORT).show()
                                     }
                                 },
