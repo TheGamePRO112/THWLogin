@@ -1,5 +1,6 @@
 package com.example.thwlogin
 
+import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -9,12 +10,14 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -43,7 +46,12 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
@@ -111,6 +119,35 @@ class MainActivity : ComponentActivity() {
             var showManualEntryDialog by remember { mutableStateOf(false) }
             var manualBarcodeText by remember { mutableStateOf("") }
             var availableUpdate by remember { mutableStateOf<ReleaseInfo?>(null) }
+
+            // Zeiterfassung States (EXPERIMENTAL)
+            var isTrackingWork by remember { mutableStateOf(WorkTimeManager.isTracking(context)) }
+            var trackingStartTime by remember { mutableLongStateOf(WorkTimeManager.getStartTimeMillis(context)) }
+            var elapsedSeconds by remember { mutableLongStateOf(0L) }
+            var showWorkCalendarDialog by remember { mutableStateOf(false) }
+            var editingWorkEntry by remember { mutableStateOf<WorkEntry?>(null) }
+            var showEditEntryDialog by remember { mutableStateOf(false) }
+            var workEntriesList by remember { mutableStateOf(WorkTimeManager.getEntries(context)) }
+
+            // Live Timer Ticker
+            LaunchedEffect(isTrackingWork, trackingStartTime) {
+                if (isTrackingWork && trackingStartTime > 0L) {
+                    while (true) {
+                        val diff = (System.currentTimeMillis() - trackingStartTime) / 1000
+                        elapsedSeconds = maxOf(0L, diff)
+                        delay(1000)
+                    }
+                } else {
+                    elapsedSeconds = 0L
+                }
+            }
+
+            val formattedTimerString = remember(elapsedSeconds) {
+                val hours = elapsedSeconds / 3600
+                val minutes = (elapsedSeconds % 3600) / 60
+                val secs = elapsedSeconds % 60
+                String.format("%02d:%02d:%02d", hours, minutes, secs)
+            }
 
             // Statusleiste Icon-Farbe (hell/dunkel) anpassen
             val window = (context as? ComponentActivity)?.window
@@ -204,11 +241,9 @@ class MainActivity : ComponentActivity() {
                 BarcodeWidgetProvider.updateAllWidgets(context)
             }
 
-            // GitHub Update Prüfung beim Start (falls aktiviert)
-            LaunchedEffect(isAutoUpdateEnabled) {
-                if (isAutoUpdateEnabled) {
-                    availableUpdate = AppUpdater.checkUpdate(currentVersion)
-                }
+            // GitHub Update Prüfung beim Start (in Experimental deaktiviert)
+            LaunchedEffect(Unit) {
+                availableUpdate = null
             }
 
             // Barcode vorbereiten
@@ -416,31 +451,29 @@ class MainActivity : ComponentActivity() {
                             )
 
                             DropdownMenuItem(
-                                text = { Text("Auto-Update-Prüfung", fontWeight = FontWeight.Medium) },
+                                text = {
+                                    Column {
+                                        Text("Auto-Update-Prüfung", fontWeight = FontWeight.Medium)
+                                        Text("In Experimental deaktiviert", fontSize = 11.sp, color = Color.Gray)
+                                    }
+                                },
                                 leadingIcon = {
                                     Icon(
-                                        if (isAutoUpdateEnabled) Icons.Default.SystemUpdate else Icons.Default.SyncDisabled,
-                                        contentDescription = null
+                                        Icons.Default.SyncDisabled,
+                                        contentDescription = null,
+                                        tint = Color.Gray
                                     )
                                 },
                                 trailingIcon = {
                                     Switch(
-                                        checked = isAutoUpdateEnabled,
+                                        checked = false,
                                         onCheckedChange = null,
-                                        modifier = Modifier.padding(start = 12.dp),
+                                        enabled = false,
                                         colors = switchColors
                                     )
                                 },
-                                colors = glassItemColors,
-                                onClick = {
-                                    isAutoUpdateEnabled = !isAutoUpdateEnabled
-                                    prefs.edit().putBoolean("auto_update_enabled", isAutoUpdateEnabled).apply()
-                                    Toast.makeText(
-                                        context,
-                                        if (isAutoUpdateEnabled) "Automatische Update-Prüfung aktiv" else "Automatische Update-Prüfung deaktiviert",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
+                                enabled = false,
+                                onClick = {}
                             )
 
                             DropdownMenuItem(
@@ -472,6 +505,17 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
 
+                            DropdownMenuItem(
+                                text = { Text("Stunden-Kalender", fontWeight = FontWeight.Medium) },
+                                leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
+                                colors = glassItemColors,
+                                onClick = {
+                                    showMenu = false
+                                    workEntriesList = WorkTimeManager.getEntries(context)
+                                    showWorkCalendarDialog = true
+                                }
+                            )
+
                             HorizontalDivider(
                                 modifier = Modifier.padding(horizontal = 12.dp),
                                 color = menuDividerColor,
@@ -490,59 +534,231 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // Status-Indikatoren (nur Logos, noch kleiner & dezenter)
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    // Status-Indikatoren & EXPERIMENTAL Badge (unter den Sperr-Icons)
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        if (isLocked) {
-                            Surface(
-                                color = glassButtonBg,
-                                shape = CircleShape,
-                                border = BorderStroke(1.dp, glassButtonBorder)
-                            ) {
-                                Box(
-                                    modifier = Modifier.size(26.dp),
-                                    contentAlignment = Alignment.Center
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (isLocked) {
+                                Surface(
+                                    color = glassButtonBg,
+                                    shape = CircleShape,
+                                    border = BorderStroke(1.dp, glassButtonBorder)
                                 ) {
-                                    Icon(
-                                        Icons.Default.Lock,
-                                        contentDescription = "Position fixiert",
-                                        tint = iconTint,
-                                        modifier = Modifier.size(13.dp)
-                                    )
+                                    Box(
+                                        modifier = Modifier.size(26.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Lock,
+                                            contentDescription = "Position fixiert",
+                                            tint = iconTint,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            if (isRotationLocked) {
+                                Surface(
+                                    color = glassButtonBg,
+                                    shape = CircleShape,
+                                    border = BorderStroke(1.dp, glassButtonBorder)
+                                ) {
+                                    Box(
+                                        modifier = Modifier.size(26.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.ScreenLockRotation,
+                                            contentDescription = "Drehung gesperrt",
+                                            tint = iconTint,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
-                        if (isRotationLocked) {
-                            Surface(
-                                color = glassButtonBg,
-                                shape = CircleShape,
-                                border = BorderStroke(1.dp, glassButtonBorder)
-                            ) {
-                                Box(
-                                    modifier = Modifier.size(26.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.ScreenLockRotation,
-                                        contentDescription = "Drehung gesperrt",
-                                        tint = iconTint,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                }
-                            }
+
+                        Surface(
+                            color = Color(0xFFFF9800).copy(alpha = 0.25f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(0.8.dp, Color(0xFFFF9800))
+                        ) {
+                            Text(
+                                text = "EXP",
+                                color = Color(0xFFFFB74D),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
                         }
                     }
                 }
 
-                // --- UNTEN: SCANNER BUTTON (Liquid Glass) ---
-                Box(
+                // --- UNTEN: ZEITERFASSUNG (EXPERIMENTAL) & SCANNER BUTTON ---
+                Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
-                        .padding(bottom = 20.dp)
+                        .padding(bottom = 16.dp, start = 20.dp, end = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // --- LIQUID GLASS TIMER CARD ---
+                    Surface(
+                        color = if (isDarkMode) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.70f),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, glassButtonBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Header row: Title + EXPERIMENTAL Badge + Kalender Button
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Timer,
+                                        contentDescription = null,
+                                        tint = iconTint,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = "Zeiterfassung",
+                                        color = primaryTextColor,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Surface(
+                                        color = Color(0xFFFF9800).copy(alpha = 0.25f),
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = BorderStroke(0.8.dp, Color(0xFFFF9800))
+                                    ) {
+                                        Text(
+                                            text = "EXP",
+                                            color = Color(0xFFFFB74D),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        workEntriesList = WorkTimeManager.getEntries(context)
+                                        showWorkCalendarDialog = true
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.CalendarMonth,
+                                        contentDescription = "Kalender",
+                                        tint = iconTint,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+
+                            // Live Timer Status Row
+                            if (isTrackingWork) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    // Pulsing Active Indicator Dot
+                                    val transition = rememberInfiniteTransition(label = "dot_pulse")
+                                    val alpha by transition.animateFloat(
+                                        initialValue = 0.3f,
+                                        targetValue = 1.0f,
+                                        animationSpec = infiniteRepeatable(
+                                            animation = tween(800, easing = LinearEasing),
+                                            repeatMode = RepeatMode.Reverse
+                                        ),
+                                        label = "dot_alpha"
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .background(Color(0xFF00E676).copy(alpha = alpha), CircleShape)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = "Dienst aktiv: $formattedTimerString",
+                                        color = if (isDarkMode) Color(0xFF69F0AE) else Color(0xFF007E33),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = "Kein aktiver Dienst. Tippe auf Einloggen.",
+                                    color = primaryTextColor.copy(alpha = 0.8f),
+                                    fontSize = 13.sp
+                                )
+                            }
+
+                            Spacer(Modifier.height(10.dp))
+
+                            // Toggle Login/Logout Button
+                            Button(
+                                onClick = {
+                                    if (isTrackingWork) {
+                                        val entry = WorkTimeManager.stopTracking(context)
+                                        isTrackingWork = false
+                                        trackingStartTime = 0L
+                                        elapsedSeconds = 0L
+                                        workEntriesList = WorkTimeManager.getEntries(context)
+                                        if (entry != null) {
+                                            val formatted = WorkTimeManager.formatMinutesToHours(entry.durationMinutes)
+                                            Toast.makeText(context, "Dienst beendet ($formatted erfasst)", Toast.LENGTH_LONG).show()
+                                        }
+                                    } else {
+                                        WorkTimeManager.startTracking(context)
+                                        isTrackingWork = true
+                                        trackingStartTime = System.currentTimeMillis()
+                                        Toast.makeText(context, "Dienst gestartet", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                shape = RoundedCornerShape(50),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isTrackingWork) Color(0xFFD32F2F) else Color(0xFF003399),
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(42.dp)
+                            ) {
+                                Icon(
+                                    if (isTrackingWork) Icons.Default.Logout else Icons.Default.Login,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = if (isTrackingWork) "Dienst beenden (Ausloggen)" else "Dienst starten (Einloggen)",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    // --- SCANNER BUTTON ---
                     LiquidButton(
                         onClick = {
                             val options = ScanOptions().apply {
@@ -554,8 +770,8 @@ class MainActivity : ComponentActivity() {
                         },
                         isDarkMode = isDarkMode,
                         modifier = Modifier
-                            .fillMaxWidth(0.8f)
-                            .height(54.dp)
+                            .fillMaxWidth()
+                            .height(50.dp)
                     ) {
                         Icon(
                             Icons.Default.QrCodeScanner,
@@ -566,7 +782,7 @@ class MainActivity : ComponentActivity() {
                         Text(
                             text = "Barcode scannen",
                             color = if (isDarkMode) Color.White else Color(0xFF003399),
-                            fontSize = 17.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -576,35 +792,21 @@ class MainActivity : ComponentActivity() {
                 if (showHelpDialog) {
                     AlertDialog(
                         onDismissRequest = { showHelpDialog = false },
-                        title = { Text("Hilfe & Info") },
+                        title = { Text("Hilfe & Info [Experimental]") },
                         text = {
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("Version: $currentVersion\nScanne deinen THW-Barcode und verschiebe ihn vertikal an die gewünschte Position.")
+                                Text("Version: $currentVersion (Experimental)\nScanne deinen THW-Barcode und verschiebe ihn vertikal an die gewünschte Position.")
 
                                 OutlinedButton(
                                     onClick = {
-                                        isCheckingUpdate = true
-                                        coroutineScope.launch {
-                                            val update = AppUpdater.checkUpdate(currentVersion)
-                                            isCheckingUpdate = false
-                                            if (update != null) {
-                                                showHelpDialog = false
-                                                availableUpdate = update
-                                            } else {
-                                                Toast.makeText(
-                                                    context,
-                                                    "Kein Update gefunden (v$currentVersion ist aktuell)",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
-                                        }
+                                        Toast.makeText(context, "Aufgrund der Experimental-Version deaktiviert", Toast.LENGTH_SHORT).show()
                                     },
-                                    enabled = !isCheckingUpdate,
+                                    enabled = false,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Icon(Icons.Default.SystemUpdate, contentDescription = null)
+                                    Icon(Icons.Default.SyncDisabled, contentDescription = null)
                                     Spacer(Modifier.width(8.dp))
-                                    Text(if (isCheckingUpdate) "Prüfe..." else "Nach Updates suchen")
+                                    Text("Updates deaktiviert (Experimental)")
                                 }
 
                                 Button(
@@ -671,6 +873,460 @@ class MainActivity : ComponentActivity() {
                         },
                         dismissButton = {
                             TextButton(onClick = { showManualEntryDialog = false }) {
+                                Text("Abbrechen")
+                            }
+                        }
+                    )
+                }
+
+                // --- STUNDEN-KALENDER DIALOG (EXPERIMENTAL) ---
+                if (showWorkCalendarDialog) {
+                    val totalMinutesAll = remember(workEntriesList) { workEntriesList.sumOf { it.durationMinutes } }
+                    val formattedTotalAll = remember(totalMinutesAll) { WorkTimeManager.formatMinutesToHours(totalMinutesAll) }
+                    var calendarTab by remember { mutableIntStateOf(0) } // 0 = Liste, 1 = Kalender
+                    var selectedMonthCal by remember { mutableStateOf(Calendar.getInstance()) }
+                    var selectedDayFilter by remember { mutableStateOf<String?>(null) }
+
+                    AlertDialog(
+                        onDismissRequest = { showWorkCalendarDialog = false },
+                        title = { Text("Dienstzeiten & Kalender") },
+                        text = {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 440.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                // Summary bar
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Gesamte Dienstzeit:",
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 13.sp
+                                        )
+                                        Text(
+                                            text = formattedTotalAll,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontSize = 15.sp
+                                        )
+                                    }
+                                }
+
+                                // View Selector Tabs (Liste vs. Kalender)
+                                TabRow(
+                                    selectedTabIndex = calendarTab,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Tab(
+                                        selected = calendarTab == 0,
+                                        onClick = { calendarTab = 0 },
+                                        text = { Text("Liste", fontSize = 13.sp) },
+                                        icon = { Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                    )
+                                    Tab(
+                                        selected = calendarTab == 1,
+                                        onClick = { calendarTab = 1 },
+                                        text = { Text("Kalender", fontSize = 13.sp) },
+                                        icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                    )
+                                }
+
+                                if (calendarTab == 0) {
+                                    // --- LISTE TAB ---
+                                    OutlinedButton(
+                                        onClick = {
+                                            editingWorkEntry = WorkEntry(
+                                                date = WorkTimeManager.getTodayGermanDate(),
+                                                startTime = "08:00",
+                                                endTime = "16:00",
+                                                durationMinutes = 480L,
+                                                note = "Dienst"
+                                            )
+                                            showEditEntryDialog = true
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Stunden nachtragen")
+                                    }
+
+                                    HorizontalDivider()
+
+                                    if (workEntriesList.isEmpty()) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 24.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "Noch keine Dienstzeiten erfasst.",
+                                                color = Color.Gray,
+                                                fontSize = 13.sp
+                                            )
+                                        }
+                                    } else {
+                                        LazyColumn(
+                                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            items(workEntriesList.size) { index ->
+                                                val entry = workEntriesList[index]
+                                                Card(
+                                                    colors = CardDefaults.cardColors(
+                                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                                                    ),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(10.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Column(modifier = Modifier.weight(1f)) {
+                                                            Text(
+                                                                text = "${entry.date} (${entry.note})",
+                                                                fontWeight = FontWeight.Bold,
+                                                                fontSize = 13.sp
+                                                            )
+                                                            Text(
+                                                                text = "${entry.startTime} - ${entry.endTime} Uhr  •  ${WorkTimeManager.formatMinutesToHours(entry.durationMinutes)}",
+                                                                fontSize = 12.sp,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+                                                        }
+                                                        Row {
+                                                            IconButton(
+                                                                onClick = {
+                                                                    editingWorkEntry = entry
+                                                                    showEditEntryDialog = true
+                                                                },
+                                                                modifier = Modifier.size(32.dp)
+                                                            ) {
+                                                                Icon(Icons.Default.Edit, contentDescription = "Bearbeiten", modifier = Modifier.size(16.dp))
+                                                            }
+                                                            IconButton(
+                                                                onClick = {
+                                                                    WorkTimeManager.deleteEntry(context, entry.id)
+                                                                    workEntriesList = WorkTimeManager.getEntries(context)
+                                                                },
+                                                                modifier = Modifier.size(32.dp)
+                                                            ) {
+                                                                Icon(Icons.Default.Delete, contentDescription = "Löschen", modifier = Modifier.size(16.dp), tint = Color(0xFFD32F2F))
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // --- KALENDER TAB ---
+                                    val monthYearFormat = remember { SimpleDateFormat("MMMM yyyy", Locale.GERMANY) }
+                                    val currentMonthTitle = monthYearFormat.format(selectedMonthCal.time)
+
+                                    // Month Navigation
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        IconButton(
+                                            onClick = {
+                                                val c = selectedMonthCal.clone() as Calendar
+                                                c.add(Calendar.MONTH, -1)
+                                                selectedMonthCal = c
+                                            },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(Icons.Default.ChevronLeft, contentDescription = "Vorheriger Monat")
+                                        }
+
+                                        Text(
+                                            text = currentMonthTitle.replaceFirstChar { it.uppercase() },
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
+                                        )
+
+                                        IconButton(
+                                            onClick = {
+                                                val c = selectedMonthCal.clone() as Calendar
+                                                c.add(Calendar.MONTH, 1)
+                                                selectedMonthCal = c
+                                            },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(Icons.Default.ChevronRight, contentDescription = "Nächster Monat")
+                                        }
+                                    }
+
+                                    // Weekdays header
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                                        listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So").forEach { day ->
+                                            Text(text = day, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                                        }
+                                    }
+
+                                    // Month Grid
+                                    val daysInMonth = remember(selectedMonthCal) {
+                                        val cal = selectedMonthCal.clone() as Calendar
+                                        cal.set(Calendar.DAY_OF_MONTH, 1)
+                                        val firstDayOfWeek = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7 // Monday = 0
+                                        val maxDays = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+                                        Pair(firstDayOfWeek, maxDays)
+                                    }
+
+                                    val yearInt = selectedMonthCal.get(Calendar.YEAR)
+                                    val monthInt = selectedMonthCal.get(Calendar.MONTH) + 1
+
+                                    val entriesForMonth = remember(workEntriesList, yearInt, monthInt) {
+                                        workEntriesList.filter { entry ->
+                                            val key = WorkTimeManager.getSortKey(entry.date)
+                                            val targetMonthKey = String.format(Locale.GERMANY, "%04d%02d", yearInt, monthInt)
+                                            key.startsWith(targetMonthKey)
+                                        }
+                                    }
+
+                                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        val totalCells = daysInMonth.first + daysInMonth.second
+                                        val rows = (totalCells + 6) / 7
+
+                                        for (r in 0 until rows) {
+                                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                                                for (c in 0 until 7) {
+                                                    val cellIndex = r * 7 + c
+                                                    val dayNum = cellIndex - daysInMonth.first + 1
+
+                                                    if (cellIndex >= daysInMonth.first && dayNum <= daysInMonth.second) {
+                                                        val dateFormatted = String.format(Locale.GERMANY, "%02d.%02d.%04d", dayNum, monthInt, yearInt)
+                                                        val dayEntries = entriesForMonth.filter { WorkTimeManager.formatDateToGerman(it.date) == dateFormatted }
+                                                        val dayMinutes = dayEntries.sumOf { it.durationMinutes }
+                                                        val hasEntries = dayMinutes > 0
+                                                        val isSelected = selectedDayFilter == dateFormatted
+
+                                                        Surface(
+                                                            color = when {
+                                                                isSelected -> MaterialTheme.colorScheme.primary
+                                                                hasEntries -> MaterialTheme.colorScheme.primaryContainer
+                                                                else -> Color.Transparent
+                                                            },
+                                                            shape = RoundedCornerShape(8.dp),
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .height(38.dp)
+                                                                .padding(1.dp),
+                                                            onClick = {
+                                                                selectedDayFilter = if (isSelected) null else dateFormatted
+                                                            }
+                                                        ) {
+                                                            Column(
+                                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                                verticalArrangement = Arrangement.Center,
+                                                                modifier = Modifier.fillMaxSize()
+                                                            ) {
+                                                                Text(
+                                                                    text = "$dayNum",
+                                                                    fontSize = 11.sp,
+                                                                    fontWeight = if (hasEntries) FontWeight.Bold else FontWeight.Normal,
+                                                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                                                )
+                                                                if (hasEntries) {
+                                                                    Text(
+                                                                        text = WorkTimeManager.formatMinutesToHours(dayMinutes),
+                                                                        fontSize = 9.sp,
+                                                                        color = if (isSelected) Color.White.copy(alpha = 0.9f) else MaterialTheme.colorScheme.primary,
+                                                                        fontWeight = FontWeight.Bold
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
+                                                    } else {
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Filtered entries for selected day
+                                    selectedDayFilter?.let { filterDate ->
+                                        HorizontalDivider()
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("Einträge für $filterDate:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            TextButton(
+                                                onClick = {
+                                                    editingWorkEntry = WorkEntry(
+                                                        date = filterDate,
+                                                        startTime = "08:00",
+                                                        endTime = "16:00",
+                                                        durationMinutes = 480L,
+                                                        note = "Dienst"
+                                                    )
+                                                    showEditEntryDialog = true
+                                                }
+                                            ) {
+                                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                                                Spacer(Modifier.width(4.dp))
+                                                Text("Nachtragen", fontSize = 12.sp)
+                                            }
+                                        }
+
+                                        val filteredDayEntries = workEntriesList.filter { WorkTimeManager.formatDateToGerman(it.date) == filterDate }
+                                        if (filteredDayEntries.isEmpty()) {
+                                            Text("Kein Dienst an diesem Tag.", fontSize = 12.sp, color = Color.Gray)
+                                        } else {
+                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                filteredDayEntries.forEach { entry ->
+                                                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))) {
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth().padding(8.dp),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Text("${entry.startTime} - ${entry.endTime} (${entry.note}): ${WorkTimeManager.formatMinutesToHours(entry.durationMinutes)}", fontSize = 12.sp)
+                                                            Row {
+                                                                IconButton(onClick = { editingWorkEntry = entry; showEditEntryDialog = true }, modifier = Modifier.size(24.dp)) {
+                                                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                                                                }
+                                                                IconButton(onClick = { WorkTimeManager.deleteEntry(context, entry.id); workEntriesList = WorkTimeManager.getEntries(context) }, modifier = Modifier.size(24.dp)) {
+                                                                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color(0xFFD32F2F))
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showWorkCalendarDialog = false }) {
+                                Text("Schließen")
+                            }
+                        }
+                    )
+                }
+
+                // --- STUNDEN BEARBEITEN / NACHTRAGEN DIALOG ---
+                if (showEditEntryDialog && editingWorkEntry != null) {
+                    var editDate by remember { mutableStateOf(WorkTimeManager.formatDateToGerman(editingWorkEntry!!.date)) }
+                    var editStart by remember { mutableStateOf(editingWorkEntry!!.startTime) }
+                    var editEnd by remember { mutableStateOf(editingWorkEntry!!.endTime) }
+                    var editNote by remember { mutableStateOf(editingWorkEntry!!.note) }
+
+                    AlertDialog(
+                        onDismissRequest = { showEditEntryDialog = false },
+                        title = { Text("Eintrag bearbeiten / nachtragen") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = editDate,
+                                    onValueChange = { editDate = it },
+                                    label = { Text("Datum (TT.MM.JJJJ)") },
+                                    singleLine = true,
+                                    trailingIcon = {
+                                        IconButton(onClick = {
+                                            val cal = Calendar.getInstance()
+                                            try {
+                                                if (editDate.contains(".")) {
+                                                    val parts = editDate.split(".")
+                                                    if (parts.size == 3) {
+                                                        cal.set(parts[2].toInt(), parts[1].toInt() - 1, parts[0].toInt())
+                                                    }
+                                                }
+                                            } catch (_: Exception) {}
+
+                                            DatePickerDialog(
+                                                context,
+                                                { _, y, m, d ->
+                                                    editDate = String.format(Locale.GERMANY, "%02d.%02d.%04d", d, m + 1, y)
+                                                },
+                                                cal.get(Calendar.YEAR),
+                                                cal.get(Calendar.MONTH),
+                                                cal.get(Calendar.DAY_OF_MONTH)
+                                            ).show()
+                                        }) {
+                                            Icon(Icons.Default.DateRange, contentDescription = "Kalender öffnen")
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedTextField(
+                                    value = editStart,
+                                    onValueChange = { editStart = it },
+                                    label = { Text("Startzeit (HH:mm)") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedTextField(
+                                    value = editEnd,
+                                    onValueChange = { editEnd = it },
+                                    label = { Text("Endzeit (HH:mm)") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedTextField(
+                                    value = editNote,
+                                    onValueChange = { editNote = it },
+                                    label = { Text("Bezeichnung / Notiz") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    val durMin = try {
+                                        val sdf = SimpleDateFormat("HH:mm", Locale.GERMANY)
+                                        val d1 = sdf.parse(editStart)
+                                        val d2 = sdf.parse(editEnd)
+                                        if (d1 != null && d2 != null) {
+                                            maxOf(1L, (d2.time - d1.time) / (1000 * 60))
+                                        } else 60L
+                                    } catch (_: Exception) { 60L }
+
+                                    val updated = editingWorkEntry!!.copy(
+                                        date = editDate.trim(),
+                                        startTime = editStart.trim(),
+                                        endTime = editEnd.trim(),
+                                        durationMinutes = durMin,
+                                        note = editNote.trim()
+                                    )
+                                    val currentList = WorkTimeManager.getEntries(context)
+                                    if (currentList.any { it.id == updated.id }) {
+                                        WorkTimeManager.updateEntry(context, updated)
+                                    } else {
+                                        WorkTimeManager.addEntry(context, updated)
+                                    }
+                                    workEntriesList = WorkTimeManager.getEntries(context)
+                                    showEditEntryDialog = false
+                                }
+                            ) {
+                                Text("Speichern")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showEditEntryDialog = false }) {
                                 Text("Abbrechen")
                             }
                         }
