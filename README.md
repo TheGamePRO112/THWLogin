@@ -1,6 +1,6 @@
 # 🔷 THW Login v2.5
 
-Eine moderne, benutzerfreundliche Android-App zum schnellen Scannen, Verwalten und Vorzeigen von THW-Barcodes sowie zur persönlichen Dienstzeiterfassung im eleganten **iOS Glassmorphic Design**.
+Eine moderne, benutzerfreundliche Android-App zum schnellen Scannen, Verwalten und Vorzeigen von THW-Barcodes sowie zur persönlichen Dienstzeiterfassung.
 
 ![Android SDK](https://img.shields.io/badge/Android-API%2026%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
@@ -19,14 +19,7 @@ Eine moderne, benutzerfreundliche Android-App zum schnellen Scannen, Verwalten u
   - Übersichtliche Auflistung aller erfassten Dienstzeiten inklusive Gesamtsumme.
   - Interaktive Monatsraster-Ansicht mit Tagesfilter, Navigation und Stundensummen pro Tag.
   - Nachträgliches Erfassen, Bearbeiten und Löschen von Dienstzeiten inklusive Datumsauswahl (Calendar Picker).
-- **Lokaler Datenschutz-Hinweis**: Einmaliger Hinweis beim ersten Start, dass erfasste Zeiten rein lokal auf dem Gerät zur persönlichen Übersicht gespeichert werden und keine Online-Synchronisation stattfindet.
-
-### 🎨 iOS Glassmorphic Design System (Apple HIG & Emil Kowalski Engineering)
-- **Grouped Glass Cards & Modals**: Transluzente Glaskarten mit weichen Squircle-Ecken (`28.dp`), feiner Lichtkanten-Highlighting und opaken Hintergründen.
-- **iOS Segmented Control**: Sanft animierte Kapsel-Slider für den flüssigen Tab-Wechsel.
-- **Tactile Spring Press Feedback**: Physikalisch spürbares Feder-Druck-Feedback (`tactilePress`) auf allen interaktiven Buttons, Icons und Kalendertagen.
-- **High-Contrast Typography**: Hervorragend lesbare Feldbeschreibungen nach Apple HIG.
-- **Blicksichere Menü-Überlagerung**: Abdunkelnder Scrim-Overlay und blicksicherer Glas-Hintergrund im Einstellungen-Menü.
+- **Datenschutz-Hinweis**: Die erfasste Zeiten werden rein lokal auf dem Gerät zur persönlichen Übersicht gespeichert und es findet keine Online-Synchronisation statt.
 
 ### 📸 Barcode & Kamera-Scanner
 - **Echter CODE_128 Barcode**: Generierung und Anzeige des Barcodes mit hoher Schärfe.
