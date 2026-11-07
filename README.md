@@ -1,11 +1,11 @@
-# 🔷 THW Login v2.5
+# 🔷 THW Login v2.0.5
 
 Eine moderne, benutzerfreundliche Android-App zum schnellen Scannen, Verwalten und Vorzeigen von THW-Barcodes sowie zur persönlichen Dienstzeiterfassung.
 
 ![Android SDK](https://img.shields.io/badge/Android-API%2026%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)
-![Version](https://img.shields.io/badge/Version-v2.5-0055FF?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-v2.0.5-0055FF?style=for-the-badge)
 
 ---
 

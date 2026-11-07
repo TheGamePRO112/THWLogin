@@ -76,7 +76,7 @@ class SplashActivity : ComponentActivity() {
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Version 2.5",
+                        text = "Version 2.0.5",
                         color = Color.White.copy(alpha = 0.65f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
