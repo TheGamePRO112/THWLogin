@@ -1,46 +1,56 @@
-# 🔷 THW Login [EXPERIMENTAL]
+# 🔷 THW Login v2.5
 
-Eine moderne, benutzerfreundliche Android-App zum schnellen Scannen, Verwalten und Vorzeigen von THW-Barcodes sowie zur Arbeits- & Dienstzeiterfassung.
-
-> [!WARNING]
-> **Dies ist eine EXPERIMENTAL / TEST-VERSION (v2.0.4-EXPERIMENTAL).**
-> Neue Funktionen wie der Stundenzähler befinden sich in der Erprobung. Die automatische Update-Funktion ist in dieser Test-Version deaktiviert.
+Eine moderne, benutzerfreundliche Android-App zum schnellen Scannen, Verwalten und Vorzeigen von THW-Barcodes sowie zur persönlichen Dienstzeiterfassung im eleganten **iOS Glassmorphic Design**.
 
 ![Android SDK](https://img.shields.io/badge/Android-API%2026%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)
-![Version](https://img.shields.io/badge/Version-v2.0.4--EXPERIMENTAL-FF9800?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-v2.5-0055FF?style=for-the-badge)
 
 ---
 
-## 🚀 Funktionen (inkl. Experimental Features)
+## 🚀 Funktionen & Highlights
 
-- ⏱️ **Dienstzeiterfassung & Stundenzähler (NEU)**:
-  - **Einloggen / Ausloggen Toggle-Button**: Starte und beende deinen Dienst mit nur einem Tippen.
-  - **Live-Timer**: Zeigt bei aktivem Dienst sekundengenau die verstrichene Zeit (`HH:mm:ss`) mit optischem Status-Indikator an.
-  - **Stunden-Kalender**: Übersichtliche Auflistung aller erfassten Dienstzeiten inklusive Gesamtsumme.
-  - **Nachtragen & Bearbeiten**: Dienstzeiten können nachträglich bearbeitet, manuell eingetragen oder gelöscht werden.
-- 📸 **Kamera-Barcode-Scanner**: Schnelles Einscannen von Barcodes mit kontinuierlichem Autofokus.
-- 📱 **Home-Screen Widget**: Freistehendes, transparentes Widget direkt auf dem Startbildschirm. Über das App-Menü stufenlos um 90° drehbar (Hochkant / Querformat).
-- ⌨️ **Manuelle Barcode-Eingabe**: Für Geräte ohne Kamera kann die Barcode-Nummer (z. B. `12345678-99`) über das Ziffernfeld eingegeben werden.
-- ↕️ **Stufenlos verschiebbar**: Der Barcode kann per Drag-and-Drop auf dem Bildschirm verschoben werden.
-- 🔒 **Position & Drehung sperren**: Fixiert die Barcode-Position oder die Bildschirmausrichtung.
-- 💧 **Liquid Glass UI**: Elegantes Glaskunst-Design auf Basis von Jetpack Compose.
-- 🌙 **Dunkel- & Hellmodus**: Dynamisches Theme für Tag und Nacht.
+### ⏱️ Dienstzeiterfassung & Stundenzähler
+- **Ein- / Ausloggen**: Starte und beende deinen Dienst mit nur einem Tippen.
+- **Live-Timer**: Zeigt bei aktivem Dienst sekundengenau die verstrichene Zeit (`HH:mm:ss`) mit optischem Status-Indikator an.
+- **Dauerhafte Statusleisten-Benachrichtigung**: Ongoing Notification mit Live-Chronometer und direktem **„Dienst beenden“**-Aktionsbutton.
+- **Stunden-Kalender & Monatsübersicht**: 
+  - Übersichtliche Auflistung aller erfassten Dienstzeiten inklusive Gesamtsumme.
+  - Interaktive Monatsraster-Ansicht mit Tagesfilter, Navigation und Stundensummen pro Tag.
+  - Nachträgliches Erfassen, Bearbeiten und Löschen von Dienstzeiten inklusive Datumsauswahl (Calendar Picker).
+- **Lokaler Datenschutz-Hinweis**: Einmaliger Hinweis beim ersten Start, dass erfasste Zeiten rein lokal auf dem Gerät zur persönlichen Übersicht gespeichert werden und keine Online-Synchronisation stattfindet.
+
+### 🎨 iOS Glassmorphic Design System (Apple HIG & Emil Kowalski Engineering)
+- **Grouped Glass Cards & Modals**: Transluzente Glaskarten mit weichen Squircle-Ecken (`28.dp`), feiner Lichtkanten-Highlighting und opaken Hintergründen.
+- **iOS Segmented Control**: Sanft animierte Kapsel-Slider für den flüssigen Tab-Wechsel.
+- **Tactile Spring Press Feedback**: Physikalisch spürbares Feder-Druck-Feedback (`tactilePress`) auf allen interaktiven Buttons, Icons und Kalendertagen.
+- **High-Contrast Typography**: Hervorragend lesbare Feldbeschreibungen nach Apple HIG.
+- **Blicksichere Menü-Überlagerung**: Abdunkelnder Scrim-Overlay und blicksicherer Glas-Hintergrund im Einstellungen-Menü.
+
+### 📸 Barcode & Kamera-Scanner
+- **Echter CODE_128 Barcode**: Generierung und Anzeige des Barcodes mit hoher Schärfe.
+- **Stufenlos verschiebbar**: Vertikale Drag-and-Drop Positionierung ohne Layout-Sprünge.
+- **Position & Drehung sperren**: Fixiert die Barcode-Position oder die Bildschirmausrichtung.
+- **Optimierter Kamera-Scanner**: Eigene Scanner-Ansicht (`CustomCaptureActivity`) mit kontinuierlichem Autofokus, dunklem Vignette-Maskenoverlay, schwebendem Hinweistext und iOS-Abbrechen-Button.
+- **Manuelle Eingabe**: Ziffern- & Bindestrich-Tastatur zur manuellen Eingabe der Barcode-Nummer (z. B. `12345678-99`).
+
+### 📱 Home-Screen Widget
+- **Freistehend & Transparent**: Transparentes Widget direkt auf dem Android-Startbildschirm.
+- **90° Rotation**: Über das App-Menü stufenlos um 90° drehbar (Horizontal & Vertikal).
+
+### 🔄 Automatische GitHub Update-Prüfung
+- Prüft beim App-Start automatisch über die GitHub API (`User-Agent`-Header) auf neue Releases.
+- Manueller Update-Check im Hilfe-Dialog mit direktem APK-Download.
 
 ---
 
 ## 📱 Screenshots
 
 ### App & Zeiterfassung
-| Dunkelmodus | Menü & Einstellungen | Hellmodus |
+| Dunkelmodus (iOS Slate-Navy) | Menü & Einstellungen | Hellmodus (Porcelain) |
 | :---: | :---: | :---: |
 | <img width="400" alt="Screenshot_2026-09-28-16-06-25-563_com example thwlogin" src="https://github.com/user-attachments/assets/61911870-fcd7-41d2-9bd7-cee86667d5a1" /> | <img width="400" alt="Screenshot_2026-09-28-16-06-41-481_com example thwlogin" src="https://github.com/user-attachments/assets/8ab0e965-4e9c-4e18-bae8-1cb3e5395c7f" /> | <img width="400" alt="Screenshot_2026-09-28-16-06-33-200_com example thwlogin" src="https://github.com/user-attachments/assets/1600fbf0-6dca-4307-a06e-2e79fb4b1dfb" /> |
-
-### Home-Screen Widget
-| Horizontal | Vertikal (90° gedreht) |
-| :---: | :---: |
-| *(Widget Screenshot Horizontal)* | *(Widget Screenshot Vertikal)* |
 
 ---
 
@@ -64,14 +74,14 @@ Da die App direkt als APK-Datei heruntergeladen wird und nicht aus dem Google Pl
 
 ### Systemvoraussetzungen
 - **Android OS**: Android 8.0 (API Level 26) oder neuer
-- **Berechtigungen**: Kamera (optional, nur zum Scannen von Barcodes)
+- **Berechtigungen**: Kamera (optional zum Barcode-Scannen), Benachrichtigungen (optional für Live-Chronometer)
 
 ---
 
 ## 🛠 Tech Stack & Architektur
 
 - **Programmiersprache**: [Kotlin](https://kotlinlang.org/) (JVM 21 Target)
-- **UI Toolkit**: [Jetpack Compose](https://developer.android.com/jetpack/compose) mit Material 3
+- **UI Toolkit**: [Jetpack Compose](https://developer.android.com/jetpack/compose) mit Material 3 & Custom iOS Design System
 - **Barcode Engine**: [ZXing Android Embedded](https://github.com/zxing-android-embedded/zxing-android-embedded)
 - **Asynchronität**: Kotlin Coroutines
 - **Build System**: Gradle (Kotlin DSL)

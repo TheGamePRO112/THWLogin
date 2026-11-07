@@ -20,6 +20,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -45,6 +46,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
@@ -68,19 +71,10 @@ private fun LiquidButton(
     isDarkMode: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
-    Button(
+    IosButton(
         onClick = onClick,
         modifier = modifier,
-        shape = RoundedCornerShape(50),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (isDarkMode) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.65f),
-            contentColor = if (isDarkMode) Color.White else Color(0xFF003399)
-        ),
-        border = BorderStroke(
-            1.dp,
-            if (isDarkMode) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.85f)
-        ),
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+        isDarkMode = isDarkMode,
         content = content
     )
 }
@@ -99,11 +93,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val context = LocalContext.current
-            val prefs = remember { context.getSharedPreferences("MeineBarcodeAppPrefs", Context.MODE_PRIVATE) }
+            val prefs = remember { context.getSharedPreferences("MeineBarcodeAppPrefs", MODE_PRIVATE) }
             val currentVersion = remember {
                 try {
-                    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "2.0.1"
-                } catch (_: Exception) { "2.0.1" }
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "2.5"
+                } catch (_: Exception) { "2.5" }
             }
 
             // Initialer Default für Drehsperre = standardmäßig aktiviert
@@ -124,10 +118,11 @@ class MainActivity : ComponentActivity() {
             var showMenu by remember { mutableStateOf(false) }
             var showHelpDialog by remember { mutableStateOf(false) }
             var showManualEntryDialog by remember { mutableStateOf(false) }
+            var showWorkTimeDisclaimerDialog by remember { mutableStateOf(false) }
             var manualBarcodeText by remember { mutableStateOf("") }
             var availableUpdate by remember { mutableStateOf<ReleaseInfo?>(null) }
 
-            // Zeiterfassung States (EXPERIMENTAL)
+            // Zeiterfassung States
             var isTrackingWork by remember { mutableStateOf(WorkTimeManager.isTracking(context)) }
             var trackingStartTime by remember { mutableLongStateOf(WorkTimeManager.getStartTimeMillis(context)) }
             var elapsedSeconds by remember { mutableLongStateOf(0L) }
@@ -187,7 +182,7 @@ class MainActivity : ComponentActivity() {
                 val hours = elapsedSeconds / 3600
                 val minutes = (elapsedSeconds % 3600) / 60
                 val secs = elapsedSeconds % 60
-                String.format("%02d:%02d:%02d", hours, minutes, secs)
+                String.format(Locale.GERMANY, "%02d:%02d:%02d", hours, minutes, secs)
             }
 
             // Statusleiste Icon-Farbe (hell/dunkel) anpassen
@@ -198,14 +193,22 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Dynamische Farben für Liquid Glass Theme
+            // Edler Slate-Navy Hintergrundverlauf mit Tiefenwirkung
             val bgGradient = if (isDarkMode) {
                 Brush.verticalGradient(
-                    listOf(Color(0xFF003399), Color(0xFF001A4D), Color(0xFF080808))
+                    colors = listOf(
+                        Color(0xFF0B132B), // Slate-Navy top
+                        Color(0xFF1C2541), // Deep Indigo middle
+                        Color(0xFF090E17)  // Onyx bottom
+                    )
                 )
             } else {
                 Brush.verticalGradient(
-                    listOf(Color(0xFFE4EFFB), Color(0xFFC8DEF8), Color(0xFFAECDF2))
+                    colors = listOf(
+                        Color(0xFFF0F4F9), // Porcelain top
+                        Color(0xFFE2ECF8), // Soft Ice Blue
+                        Color(0xFFC4DCF8)  // Sky Blue bottom
+                    )
                 )
             }
 
@@ -214,18 +217,33 @@ class MainActivity : ComponentActivity() {
             val glassButtonBg = if (isDarkMode) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.65f)
             val glassButtonBorder = if (isDarkMode) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.85f)
 
+            // High-Contrast iOS Input Field Label & Text Colors
+            val iosTextFieldColors = TextFieldDefaults.colors(
+                focusedContainerColor = if (isDarkMode) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.06f),
+                unfocusedContainerColor = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.04f),
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                focusedLabelColor = if (isDarkMode) Color.White.copy(alpha = 0.90f) else Color(0xFF003399),
+                unfocusedLabelColor = if (isDarkMode) Color(0xFF8E8E93) else Color(0xFF4A5568),
+                focusedPlaceholderColor = if (isDarkMode) Color.White.copy(alpha = 0.50f) else Color.Gray,
+                unfocusedPlaceholderColor = if (isDarkMode) Color.White.copy(alpha = 0.35f) else Color.Gray,
+                focusedTextColor = primaryTextColor,
+                unfocusedTextColor = primaryTextColor
+            )
+
+            // Blicksicheres, opakes Menü-Design ohne Durchscheinen
             val menuBgBrush = if (isDarkMode) {
                 Brush.verticalGradient(
                     listOf(
-                        Color.White.copy(alpha = 0.24f),
-                        Color(0xFF001B48).copy(alpha = 0.82f)
+                        Color(0xFF0F172A).copy(alpha = 0.98f),
+                        Color(0xFF1E293B).copy(alpha = 0.98f)
                     )
                 )
             } else {
                 Brush.verticalGradient(
                     listOf(
-                        Color.White.copy(alpha = 0.92f),
-                        Color(0xFFD3E4F8).copy(alpha = 0.88f)
+                        Color.White.copy(alpha = 0.98f),
+                        Color(0xFFE2E8F0).copy(alpha = 0.98f)
                     )
                 )
             }
@@ -233,20 +251,20 @@ class MainActivity : ComponentActivity() {
             val menuBorderBrush = if (isDarkMode) {
                 Brush.verticalGradient(
                     listOf(
-                        Color.White.copy(alpha = 0.55f),
-                        Color.White.copy(alpha = 0.15f)
+                        Color.White.copy(alpha = 0.40f),
+                        Color.White.copy(alpha = 0.12f)
                     )
                 )
             } else {
                 Brush.verticalGradient(
                     listOf(
                         Color.White,
-                        Color.White.copy(alpha = 0.50f)
+                        Color.White.copy(alpha = 0.60f)
                     )
                 )
             }
 
-            val menuDividerColor = if (isDarkMode) Color.White.copy(alpha = 0.2f) else Color(0xFF003399).copy(alpha = 0.15f)
+            val menuDividerColor = if (isDarkMode) Color.White.copy(alpha = 0.15f) else Color(0xFF003399).copy(alpha = 0.12f)
 
             val switchColors = if (isDarkMode) {
                 SwitchDefaults.colors(
@@ -282,14 +300,43 @@ class MainActivity : ComponentActivity() {
                 BarcodeWidgetProvider.updateAllWidgets(context)
             }
 
-            // GitHub Update Prüfung beim Start (in Experimental deaktiviert)
-            LaunchedEffect(Unit) {
-                availableUpdate = null
+            // GitHub Update Prüfung beim Start (Release-Modus)
+            LaunchedEffect(isAutoUpdateEnabled) {
+                if (isAutoUpdateEnabled) {
+                    availableUpdate = AppUpdater.checkUpdate(currentVersion)
+                }
             }
 
             // Barcode vorbereiten
             val barcodeBitmap = remember(barcodeValue) {
                 if (barcodeValue.isNotEmpty()) erstelleEchtenBarcode(barcodeValue, context) else null
+            }
+
+            val handleToggleWorkService = {
+                if (isTrackingWork) {
+                    val entry = WorkTimeManager.stopTracking(context)
+                    WorkTimeNotificationHelper.cancelNotification(context)
+                    isTrackingWork = false
+                    trackingStartTime = 0L
+                    elapsedSeconds = 0L
+                    workEntriesList = WorkTimeManager.getEntries(context)
+                    if (entry != null) {
+                        val formatted = WorkTimeManager.formatMinutesToHours(entry.durationMinutes)
+                        Toast.makeText(context, "Dienst beendet ($formatted erfasst)", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    val hasSeenDisclaimer = prefs.getBoolean("has_seen_work_time_disclaimer", false)
+                    if (!hasSeenDisclaimer) {
+                        showWorkTimeDisclaimerDialog = true
+                    } else {
+                        WorkTimeManager.startTracking(context)
+                        isTrackingWork = true
+                        val now = System.currentTimeMillis()
+                        trackingStartTime = now
+                        WorkTimeNotificationHelper.showOrUpdateNotification(context, now)
+                        Toast.makeText(context, "Dienst gestartet", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
 
             BoxWithConstraints(
@@ -299,7 +346,25 @@ class MainActivity : ComponentActivity() {
             ) {
                 val screenHeightPx = constraints.maxHeight.toFloat()
 
-                // --- VERSCHIEBBARER BARCODE (Bis ganz nach oben = 0px möglich!) ---
+                // Ambient Radial Glow Spot für Organische Tiefenwirkung
+                Box(
+                    modifier = Modifier
+                        .size(320.dp)
+                        .align(Alignment.TopCenter)
+                        .offset(y = 40.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = if (isDarkMode) {
+                                    listOf(Color(0xFF0055FF).copy(alpha = 0.22f), Color.Transparent)
+                                } else {
+                                    listOf(Color.White.copy(alpha = 0.60f), Color.Transparent)
+                                }
+                            ),
+                            shape = CircleShape
+                        )
+                )
+
+                // --- VERSCHIEBBARER BARCODE (Kein Layout-Sprung beim Sperren/Entsperren) ---
                 val currentOffsetY = (barcodeBias * screenHeightPx).roundToInt()
 
                 Column(
@@ -315,7 +380,6 @@ class MainActivity : ComponentActivity() {
                                     }
                                 ) { _, dragAmount ->
                                     val deltaBias = dragAmount / screenHeightPx
-                                    // 0.0f erlaubt das Schieben bis ganz an den oberen Rand (0px)!
                                     barcodeBias = (barcodeBias + deltaBias).coerceIn(0.0f, 0.65f)
                                 }
                             }
@@ -379,6 +443,7 @@ class MainActivity : ComponentActivity() {
                                 .size(36.dp)
                                 .background(glassButtonBg, CircleShape)
                                 .border(1.dp, glassButtonBorder, CircleShape)
+                                .tactilePress { showMenu = true }
                         ) {
                             Icon(
                                 Icons.Default.Menu,
@@ -388,18 +453,18 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // Dropdown-Menü im Liquid Glass Stil
+                        // Dropdown-Menü im Blicksicheren iOS-Settings Stil
                         DropdownMenu(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false },
-                            shape = RoundedCornerShape(20.dp),
+                            shape = RoundedCornerShape(24.dp),
                             containerColor = Color.Transparent,
-                            shadowElevation = 14.dp,
-                            border = BorderStroke(1.dp, menuBorderBrush),
+                            shadowElevation = 20.dp,
+                            border = BorderStroke(1.2.dp, menuBorderBrush),
                             modifier = Modifier
                                 .background(
                                     brush = menuBgBrush,
-                                    shape = RoundedCornerShape(20.dp)
+                                    shape = RoundedCornerShape(24.dp)
                                 )
                         ) {
                             val glassItemColors = MenuDefaults.itemColors(
@@ -492,29 +557,31 @@ class MainActivity : ComponentActivity() {
                             )
 
                             DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text("Auto-Update-Prüfung", fontWeight = FontWeight.Medium)
-                                        Text("In Experimental deaktiviert", fontSize = 11.sp, color = Color.Gray)
-                                    }
-                                },
+                                text = { Text("Auto-Update-Prüfung", fontWeight = FontWeight.Medium) },
                                 leadingIcon = {
                                     Icon(
-                                        Icons.Default.SyncDisabled,
-                                        contentDescription = null,
-                                        tint = Color.Gray
+                                        if (isAutoUpdateEnabled) Icons.Default.SystemUpdate else Icons.Default.SyncDisabled,
+                                        contentDescription = null
                                     )
                                 },
                                 trailingIcon = {
                                     Switch(
-                                        checked = false,
+                                        checked = isAutoUpdateEnabled,
                                         onCheckedChange = null,
-                                        enabled = false,
+                                        modifier = Modifier.padding(start = 12.dp),
                                         colors = switchColors
                                     )
                                 },
-                                enabled = false,
-                                onClick = {}
+                                colors = glassItemColors,
+                                onClick = {
+                                    isAutoUpdateEnabled = !isAutoUpdateEnabled
+                                    prefs.edit().putBoolean("auto_update_enabled", isAutoUpdateEnabled).apply()
+                                    Toast.makeText(
+                                        context,
+                                        if (isAutoUpdateEnabled) "Automatische Update-Prüfung aktiv" else "Automatische Update-Prüfung deaktiviert",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             )
 
                             DropdownMenuItem(
@@ -575,92 +642,83 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // Status-Indikatoren & EXPERIMENTAL Badge (unter den Sperr-Icons)
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    // Status-Indikatoren
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (isLocked) {
-                                Surface(
-                                    color = glassButtonBg,
-                                    shape = CircleShape,
-                                    border = BorderStroke(1.dp, glassButtonBorder)
+                        if (isLocked) {
+                            Surface(
+                                color = glassButtonBg,
+                                shape = CircleShape,
+                                border = BorderStroke(1.dp, glassButtonBorder)
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(26.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Box(
-                                        modifier = Modifier.size(26.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Lock,
-                                            contentDescription = "Position fixiert",
-                                            tint = iconTint,
-                                            modifier = Modifier.size(13.dp)
-                                        )
-                                    }
-                                }
-                            }
-                            if (isRotationLocked) {
-                                Surface(
-                                    color = glassButtonBg,
-                                    shape = CircleShape,
-                                    border = BorderStroke(1.dp, glassButtonBorder)
-                                ) {
-                                    Box(
-                                        modifier = Modifier.size(26.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            Icons.Default.ScreenLockRotation,
-                                            contentDescription = "Drehung gesperrt",
-                                            tint = iconTint,
-                                            modifier = Modifier.size(13.dp)
-                                        )
-                                    }
+                                    Icon(
+                                        Icons.Default.Lock,
+                                        contentDescription = "Position fixiert",
+                                        tint = iconTint,
+                                        modifier = Modifier.size(13.dp)
+                                    )
                                 }
                             }
                         }
-
-                        Surface(
-                            color = Color(0xFFFF9800).copy(alpha = 0.25f),
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(0.8.dp, Color(0xFFFF9800))
-                        ) {
-                            Text(
-                                text = "EXP",
-                                color = Color(0xFFFFB74D),
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                        if (isRotationLocked) {
+                            Surface(
+                                color = glassButtonBg,
+                                shape = CircleShape,
+                                border = BorderStroke(1.dp, glassButtonBorder)
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(26.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.ScreenLockRotation,
+                                        contentDescription = "Drehung gesperrt",
+                                        tint = iconTint,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
 
-                // --- UNTEN: ZEITERFASSUNG (EXPERIMENTAL) & SCANNER BUTTON ---
+                // Dezent gedimmter Background Scrim wenn Menü geöffnet ist
+                if (showMenu) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.45f))
+                            .clickable { showMenu = false }
+                    )
+                }
+
+                // --- UNTEN: ZEITERFASSUNG & SCANNER BUTTON ---
+                // Sauberes Inset-Padding für Navigationsleisten / Gestenleisten
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
-                        .padding(bottom = 16.dp, start = 20.dp, end = 20.dp),
+                        .padding(bottom = 28.dp, start = 20.dp, end = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     // --- LIQUID GLASS TIMER CARD ---
-                    Surface(
-                        color = if (isDarkMode) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.70f),
-                        shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.dp, glassButtonBorder),
+                    IosGroupedCard(
+                        isDarkMode = isDarkMode,
+                        cornerRadius = 26.dp,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
-                            modifier = Modifier.padding(14.dp),
+                            modifier = Modifier.padding(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Header row: Title + EXPERIMENTAL Badge + Kalender Button
+                            // Header row: Title + Kalender Button
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -677,23 +735,9 @@ class MainActivity : ComponentActivity() {
                                     Text(
                                         text = "Zeiterfassung",
                                         color = primaryTextColor,
-                                        fontSize = 14.sp,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold
                                     )
-                                    Spacer(Modifier.width(6.dp))
-                                    Surface(
-                                        color = Color(0xFFFF9800).copy(alpha = 0.25f),
-                                        shape = RoundedCornerShape(8.dp),
-                                        border = BorderStroke(0.8.dp, Color(0xFFFF9800))
-                                    ) {
-                                        Text(
-                                            text = "EXP",
-                                            color = Color(0xFFFFB74D),
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
                                 }
 
                                 IconButton(
@@ -701,7 +745,12 @@ class MainActivity : ComponentActivity() {
                                         workEntriesList = WorkTimeManager.getEntries(context)
                                         showWorkCalendarDialog = true
                                     },
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .tactilePress {
+                                            workEntriesList = WorkTimeManager.getEntries(context)
+                                            showWorkCalendarDialog = true
+                                        }
                                 ) {
                                     Icon(
                                         Icons.Default.CalendarMonth,
@@ -757,27 +806,7 @@ class MainActivity : ComponentActivity() {
 
                             // Toggle Login/Logout Button
                             Button(
-                                onClick = {
-                                    if (isTrackingWork) {
-                                        val entry = WorkTimeManager.stopTracking(context)
-                                        WorkTimeNotificationHelper.cancelNotification(context)
-                                        isTrackingWork = false
-                                        trackingStartTime = 0L
-                                        elapsedSeconds = 0L
-                                        workEntriesList = WorkTimeManager.getEntries(context)
-                                        if (entry != null) {
-                                            val formatted = WorkTimeManager.formatMinutesToHours(entry.durationMinutes)
-                                            Toast.makeText(context, "Dienst beendet ($formatted erfasst)", Toast.LENGTH_LONG).show()
-                                        }
-                                    } else {
-                                        WorkTimeManager.startTracking(context)
-                                        isTrackingWork = true
-                                        val now = System.currentTimeMillis()
-                                        trackingStartTime = now
-                                        WorkTimeNotificationHelper.showOrUpdateNotification(context, now)
-                                        Toast.makeText(context, "Dienst gestartet", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
+                                onClick = handleToggleWorkService,
                                 shape = RoundedCornerShape(50),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = if (isTrackingWork) Color(0xFFD32F2F) else Color(0xFF003399),
@@ -785,7 +814,8 @@ class MainActivity : ComponentActivity() {
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(42.dp)
+                                    .height(44.dp)
+                                    .tactilePress { handleToggleWorkService() }
                             ) {
                                 Icon(
                                     if (isTrackingWork) Icons.Default.Logout else Icons.Default.Login,
@@ -832,98 +862,325 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // --- HILFE & FEHLERMELDUNG DIALOG ---
-                if (showHelpDialog) {
-                    AlertDialog(
-                        onDismissRequest = { showHelpDialog = false },
-                        title = { Text("Hilfe & Info [Experimental]") },
-                        text = {
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("Version: $currentVersion (Experimental)\nScanne deinen THW-Barcode und verschiebe ihn vertikal an die gewünschte Position.")
-
-                                OutlinedButton(
-                                    onClick = {
-                                        Toast.makeText(context, "Aufgrund der Experimental-Version deaktiviert", Toast.LENGTH_SHORT).show()
-                                    },
-                                    enabled = false,
-                                    modifier = Modifier.fillMaxWidth()
+                // --- ERSTMALIGER ZEITERFASSUNG HINWEIS DIALOG ---
+                if (showWorkTimeDisclaimerDialog) {
+                    Dialog(
+                        onDismissRequest = { showWorkTimeDisclaimerDialog = false },
+                        properties = DialogProperties(usePlatformDefaultWidth = false)
+                    ) {
+                        IosGroupedCard(
+                            isDarkMode = isDarkMode,
+                            cornerRadius = 28.dp,
+                            modifier = Modifier
+                                .fillMaxWidth(0.90f)
+                                .padding(vertical = 20.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .padding(20.dp)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.SyncDisabled, contentDescription = null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Updates deaktiviert (Experimental)")
+                                    Icon(
+                                        Icons.Default.WarningAmber,
+                                        contentDescription = "Hinweis",
+                                        tint = Color(0xFFFFB74D),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(
+                                        text = "Hinweis zur Zeiterfassung",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = primaryTextColor
+                                    )
                                 }
 
-                                Button(
+                                Text(
+                                    text = "Achtung: Die Zeiterfassung ist eine rein lokale Funktion zur persönlichen Übersicht. Sie ist NICHT mit der offiziellen Online-Dienstzeiterfassung des THW synchronisiert.",
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp,
+                                    color = primaryTextColor.copy(alpha = 0.85f)
+                                )
+
+                                IosButton(
                                     onClick = {
-                                        // Öffnet direkt die GitHub Issues Seite deines Repositories im Browser
+                                        prefs.edit().putBoolean("has_seen_work_time_disclaimer", true).apply()
+                                        showWorkTimeDisclaimerDialog = false
+                                        WorkTimeManager.startTracking(context)
+                                        isTrackingWork = true
+                                        val now = System.currentTimeMillis()
+                                        trackingStartTime = now
+                                        WorkTimeNotificationHelper.showOrUpdateNotification(context, now)
+                                        Toast.makeText(context, "Dienst gestartet", Toast.LENGTH_SHORT).show()
+                                    },
+                                    isDarkMode = isDarkMode,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Verstanden", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // --- HILFE & FEHLERMELDUNG DIALOG (iOS MODAL SHEET) ---
+                if (showHelpDialog) {
+                    Dialog(
+                        onDismissRequest = { showHelpDialog = false },
+                        properties = DialogProperties(usePlatformDefaultWidth = false)
+                    ) {
+                        IosGroupedCard(
+                            isDarkMode = isDarkMode,
+                            cornerRadius = 28.dp,
+                            modifier = Modifier
+                                .fillMaxWidth(0.90f)
+                                .padding(vertical = 20.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .padding(20.dp)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                // iOS Header Row: Title + Round ✕ Close Button
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Hilfe & Info",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = primaryTextColor
+                                    )
+
+                                    Surface(
+                                        onClick = { showHelpDialog = false },
+                                        shape = CircleShape,
+                                        color = if (isDarkMode) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.08f),
+                                        modifier = Modifier
+                                            .size(30.dp)
+                                            .tactilePress { showHelpDialog = false }
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Schließen",
+                                                tint = primaryTextColor,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Text(
+                                    text = "Version: $currentVersion\nScanne deinen THW-Barcode und verschiebe ihn vertikal an die gewünschte Position.",
+                                    fontSize = 13.sp,
+                                    color = primaryTextColor.copy(alpha = 0.8f)
+                                )
+
+                                HorizontalDivider(color = menuDividerColor)
+
+                                // iOS Action Row: Nach Updates suchen
+                                Surface(
+                                    onClick = {
+                                        if (!isCheckingUpdate) {
+                                            isCheckingUpdate = true
+                                            coroutineScope.launch {
+                                                val update = AppUpdater.checkUpdate(currentVersion)
+                                                isCheckingUpdate = false
+                                                if (update != null) {
+                                                    showHelpDialog = false
+                                                    availableUpdate = update
+                                                } else {
+                                                    Toast.makeText(
+                                                        context,
+                                                        "Kein Update gefunden (v$currentVersion ist aktuell)",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                            }
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (isDarkMode) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.70f),
+                                    border = BorderStroke(1.dp, glassButtonBorder),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .tactilePress {
+                                            if (!isCheckingUpdate) {
+                                                isCheckingUpdate = true
+                                                coroutineScope.launch {
+                                                    val update = AppUpdater.checkUpdate(currentVersion)
+                                                    isCheckingUpdate = false
+                                                    if (update != null) {
+                                                        showHelpDialog = false
+                                                        availableUpdate = update
+                                                    } else {
+                                                        Toast.makeText(
+                                                            context,
+                                                            "Kein Update gefunden (v$currentVersion ist aktuell)",
+                                                            Toast.LENGTH_SHORT
+                                                        ).show()
+                                                    }
+                                                }
+                                            }
+                                        }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
+                                        Spacer(Modifier.width(12.dp))
+                                        Text(
+                                            text = if (isCheckingUpdate) "Prüfe..." else "Nach Updates suchen",
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = primaryTextColor,
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                }
+
+                                // iOS Action Row: Problem auf GitHub melden
+                                Surface(
+                                    onClick = {
                                         val issuesUrl = "https://github.com/TheGamePRO112/THWLogin/issues/new"
                                         val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(issuesUrl)).apply {
                                             flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                         }
                                         context.startActivity(browserIntent)
                                     },
-                                    modifier = Modifier.fillMaxWidth()
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (isDarkMode) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.70f),
+                                    border = BorderStroke(1.dp, glassButtonBorder),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .tactilePress {
+                                            val issuesUrl = "https://github.com/TheGamePRO112/THWLogin/issues/new"
+                                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(issuesUrl)).apply {
+                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                            }
+                                            context.startActivity(browserIntent)
+                                        }
                                 ) {
-                                    Icon(Icons.Default.BugReport, contentDescription = null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Problem / Fehler auf GitHub melden")
+                                    Row(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.BugReport, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
+                                        Spacer(Modifier.width(12.dp))
+                                        Text(
+                                            text = "Problem auf GitHub melden",
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = primaryTextColor,
+                                            fontSize = 14.sp
+                                        )
+                                    }
                                 }
                             }
-                        },
-                        confirmButton = {
-                            TextButton(onClick = { showHelpDialog = false }) {
-                                Text("Schließen")
-                            }
                         }
-                    )
+                    }
                 }
 
-                // --- MANUELLE BARCODE EINGABE DIALOG ---
+                // --- MANUELLE BARCODE EINGABE DIALOG (iOS MODAL SHEET) ---
                 if (showManualEntryDialog) {
-                    AlertDialog(
+                    Dialog(
                         onDismissRequest = { showManualEntryDialog = false },
-                        title = { Text("Barcode manuell eingeben") },
-                        text = {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Gib die Barcode-Nummer ein (z. B. 12345678-99):")
-                                OutlinedTextField(
+                        properties = DialogProperties(usePlatformDefaultWidth = false)
+                    ) {
+                        IosGroupedCard(
+                            isDarkMode = isDarkMode,
+                            cornerRadius = 28.dp,
+                            modifier = Modifier
+                                .fillMaxWidth(0.90f)
+                                .padding(vertical = 20.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .padding(20.dp)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                // iOS Header Row: Title + Round ✕ Close Button
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Barcode manuell eingeben",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = primaryTextColor
+                                    )
+
+                                    Surface(
+                                        onClick = { showManualEntryDialog = false },
+                                        shape = CircleShape,
+                                        color = if (isDarkMode) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.08f),
+                                        modifier = Modifier
+                                            .size(30.dp)
+                                            .tactilePress { showManualEntryDialog = false }
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Schließen",
+                                                tint = primaryTextColor,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Text(
+                                    text = "Gib die Barcode-Nummer ein (z. B. 12345678-99):",
+                                    fontSize = 13.sp,
+                                    color = primaryTextColor.copy(alpha = 0.8f)
+                                )
+
+                                TextField(
                                     value = manualBarcodeText,
                                     onValueChange = { input ->
                                         manualBarcodeText = input.filter { it.isDigit() || it == '-' }
                                     },
-                                    label = { Text("Barcode") },
                                     placeholder = { Text("12345678-99") },
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = iosTextFieldColors,
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                            }
-                        },
-                        confirmButton = {
-                            Button(
-                                onClick = {
-                                    val trimmed = manualBarcodeText.trim()
-                                    if (trimmed.isNotEmpty()) {
-                                        barcodeValue = trimmed
-                                        prefs.edit().putString("letzterBarcode", trimmed).apply()
-                                        BarcodeWidgetProvider.updateAllWidgets(context)
-                                        Toast.makeText(context, "Barcode gespeichert", Toast.LENGTH_SHORT).show()
-                                    }
-                                    showManualEntryDialog = false
+
+                                IosButton(
+                                    onClick = {
+                                        val trimmed = manualBarcodeText.trim()
+                                        if (trimmed.isNotEmpty()) {
+                                            barcodeValue = trimmed
+                                            prefs.edit().putString("letzterBarcode", trimmed).apply()
+                                            BarcodeWidgetProvider.updateAllWidgets(context)
+                                            Toast.makeText(context, "Barcode gespeichert", Toast.LENGTH_SHORT).show()
+                                        }
+                                        showManualEntryDialog = false
+                                    },
+                                    isDarkMode = isDarkMode,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Speichern", fontWeight = FontWeight.Bold)
                                 }
-                            ) {
-                                Text("Speichern")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showManualEntryDialog = false }) {
-                                Text("Abbrechen")
                             }
                         }
-                    )
+                    }
                 }
 
-                // --- STUNDEN-KALENDER DIALOG (EXPERIMENTAL) ---
+                // --- STUNDEN-KALENDER DIALOG (iOS MODAL SHEET) ---
                 if (showWorkCalendarDialog) {
                     val totalMinutesAll = remember(workEntriesList) { workEntriesList.sumOf { it.durationMinutes } }
                     val formattedTotalAll = remember(totalMinutesAll) { WorkTimeManager.formatMinutesToHours(totalMinutesAll) }
@@ -931,20 +1188,62 @@ class MainActivity : ComponentActivity() {
                     var selectedMonthCal by remember { mutableStateOf(Calendar.getInstance()) }
                     var selectedDayFilter by remember { mutableStateOf<String?>(null) }
 
-                    AlertDialog(
+                    Dialog(
                         onDismissRequest = { showWorkCalendarDialog = false },
-                        title = { Text("Dienstzeiten & Kalender") },
-                        text = {
+                        properties = DialogProperties(usePlatformDefaultWidth = false)
+                    ) {
+                        IosGroupedCard(
+                            isDarkMode = isDarkMode,
+                            cornerRadius = 28.dp,
+                            modifier = Modifier
+                                .fillMaxWidth(0.92f)
+                                .padding(vertical = 20.dp)
+                        ) {
                             Column(
                                 modifier = Modifier
+                                    .padding(18.dp)
                                     .fillMaxWidth()
-                                    .heightIn(max = 440.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    .heightIn(max = 520.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                // Summary bar
+                                // iOS Header Row: Title + Circular ✕ Close Button
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Dienstzeiten & Kalender",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = primaryTextColor
+                                    )
+
+                                    // Round ✕ Close Button
+                                    Surface(
+                                        onClick = { showWorkCalendarDialog = false },
+                                        shape = CircleShape,
+                                        color = if (isDarkMode) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.08f),
+                                        modifier = Modifier
+                                            .size(30.dp)
+                                            .tactilePress { showWorkCalendarDialog = false }
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Schließen",
+                                                tint = primaryTextColor,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Summary Bar Card
                                 Surface(
-                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isDarkMode) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.60f),
+                                    shape = RoundedCornerShape(16.dp),
+                                    border = BorderStroke(1.dp, glassButtonBorder),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Row(
@@ -955,35 +1254,26 @@ class MainActivity : ComponentActivity() {
                                         Text(
                                             text = "Gesamte Dienstzeit:",
                                             fontWeight = FontWeight.Medium,
+                                            color = primaryTextColor,
                                             fontSize = 13.sp
                                         )
                                         Text(
                                             text = formattedTotalAll,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary,
+                                            color = if (isDarkMode) Color(0xFF69F0AE) else Color(0xFF003399),
                                             fontSize = 15.sp
                                         )
                                     }
                                 }
 
-                                // View Selector Tabs (Liste vs. Kalender)
-                                TabRow(
-                                    selectedTabIndex = calendarTab,
+                                // Authentic iOS Segmented Control (Liste vs. Kalender)
+                                IosSegmentedControl(
+                                    items = listOf("Liste", "Kalender"),
+                                    selectedIndex = calendarTab,
+                                    onOptionSelected = { calendarTab = it },
+                                    isDarkMode = isDarkMode,
                                     modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Tab(
-                                        selected = calendarTab == 0,
-                                        onClick = { calendarTab = 0 },
-                                        text = { Text("Liste", fontSize = 13.sp) },
-                                        icon = { Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                    )
-                                    Tab(
-                                        selected = calendarTab == 1,
-                                        onClick = { calendarTab = 1 },
-                                        text = { Text("Kalender", fontSize = 13.sp) },
-                                        icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                    )
-                                }
+                                )
 
                                 if (calendarTab == 0) {
                                     // --- LISTE TAB ---
@@ -996,16 +1286,29 @@ class MainActivity : ComponentActivity() {
                                                 durationMinutes = 480L,
                                                 note = "Dienst"
                                             )
+                                            showWorkCalendarDialog = false // Hide calendar dialog to prevent bleed-through
                                             showEditEntryDialog = true
                                         },
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .tactilePress {
+                                                editingWorkEntry = WorkEntry(
+                                                    date = WorkTimeManager.getTodayGermanDate(),
+                                                    startTime = "08:00",
+                                                    endTime = "16:00",
+                                                    durationMinutes = 480L,
+                                                    note = "Dienst"
+                                                )
+                                                showWorkCalendarDialog = false
+                                                showEditEntryDialog = true
+                                            }
                                     ) {
                                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(Modifier.width(6.dp))
                                         Text("Stunden nachtragen")
                                     }
 
-                                    HorizontalDivider()
+                                    HorizontalDivider(color = menuDividerColor)
 
                                     if (workEntriesList.isEmpty()) {
                                         Box(
@@ -1016,7 +1319,7 @@ class MainActivity : ComponentActivity() {
                                         ) {
                                             Text(
                                                 text = "Noch keine Dienstzeiten erfasst.",
-                                                color = Color.Gray,
+                                                color = primaryTextColor.copy(alpha = 0.6f),
                                                 fontSize = 13.sp
                                             )
                                         }
@@ -1027,16 +1330,16 @@ class MainActivity : ComponentActivity() {
                                         ) {
                                             items(workEntriesList.size) { index ->
                                                 val entry = workEntriesList[index]
-                                                Card(
-                                                    colors = CardDefaults.cardColors(
-                                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                                                    ),
+                                                Surface(
+                                                    color = if (isDarkMode) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.70f),
+                                                    shape = RoundedCornerShape(16.dp),
+                                                    border = BorderStroke(1.dp, glassButtonBorder),
                                                     modifier = Modifier.fillMaxWidth()
                                                 ) {
                                                     Row(
                                                         modifier = Modifier
                                                             .fillMaxWidth()
-                                                            .padding(10.dp),
+                                                            .padding(12.dp),
                                                         horizontalArrangement = Arrangement.SpaceBetween,
                                                         verticalAlignment = Alignment.CenterVertically
                                                     ) {
@@ -1044,32 +1347,45 @@ class MainActivity : ComponentActivity() {
                                                             Text(
                                                                 text = "${entry.date} (${entry.note})",
                                                                 fontWeight = FontWeight.Bold,
+                                                                color = primaryTextColor,
                                                                 fontSize = 13.sp
                                                             )
                                                             Text(
                                                                 text = "${entry.startTime} - ${entry.endTime} Uhr  •  ${WorkTimeManager.formatMinutesToHours(entry.durationMinutes)}",
                                                                 fontSize = 12.sp,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                                color = primaryTextColor.copy(alpha = 0.7f)
                                                             )
                                                         }
                                                         Row {
                                                             IconButton(
                                                                 onClick = {
                                                                     editingWorkEntry = entry
+                                                                    showWorkCalendarDialog = false // Hide calendar dialog to prevent bleed-through
                                                                     showEditEntryDialog = true
                                                                 },
-                                                                modifier = Modifier.size(32.dp)
+                                                                modifier = Modifier
+                                                                    .size(32.dp)
+                                                                    .tactilePress {
+                                                                        editingWorkEntry = entry
+                                                                        showWorkCalendarDialog = false
+                                                                        showEditEntryDialog = true
+                                                                    }
                                                             ) {
-                                                                Icon(Icons.Default.Edit, contentDescription = "Bearbeiten", modifier = Modifier.size(16.dp))
+                                                                Icon(Icons.Default.Edit, contentDescription = "Bearbeiten", tint = iconTint, modifier = Modifier.size(16.dp))
                                                             }
                                                             IconButton(
                                                                 onClick = {
                                                                     WorkTimeManager.deleteEntry(context, entry.id)
                                                                     workEntriesList = WorkTimeManager.getEntries(context)
                                                                 },
-                                                                modifier = Modifier.size(32.dp)
+                                                                modifier = Modifier
+                                                                    .size(32.dp)
+                                                                    .tactilePress {
+                                                                        WorkTimeManager.deleteEntry(context, entry.id)
+                                                                        workEntriesList = WorkTimeManager.getEntries(context)
+                                                                    }
                                                             ) {
-                                                                Icon(Icons.Default.Delete, contentDescription = "Löschen", modifier = Modifier.size(16.dp), tint = Color(0xFFD32F2F))
+                                                                Icon(Icons.Default.Delete, contentDescription = "Löschen", modifier = Modifier.size(16.dp), tint = Color(0xFFFF5252))
                                                             }
                                                         }
                                                     }
@@ -1096,12 +1412,13 @@ class MainActivity : ComponentActivity() {
                                             },
                                             modifier = Modifier.size(32.dp)
                                         ) {
-                                            Icon(Icons.Default.ChevronLeft, contentDescription = "Vorheriger Monat")
+                                            Icon(Icons.Default.ChevronLeft, contentDescription = "Vorheriger Monat", tint = primaryTextColor)
                                         }
 
                                         Text(
                                             text = currentMonthTitle.replaceFirstChar { it.uppercase() },
                                             fontWeight = FontWeight.Bold,
+                                            color = primaryTextColor,
                                             fontSize = 14.sp
                                         )
 
@@ -1113,14 +1430,14 @@ class MainActivity : ComponentActivity() {
                                             },
                                             modifier = Modifier.size(32.dp)
                                         ) {
-                                            Icon(Icons.Default.ChevronRight, contentDescription = "Nächster Monat")
+                                            Icon(Icons.Default.ChevronRight, contentDescription = "Nächster Monat", tint = primaryTextColor)
                                         }
                                     }
 
                                     // Weekdays header
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                                         listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So").forEach { day ->
-                                            Text(text = day, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                                            Text(text = day, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = primaryTextColor.copy(alpha = 0.5f), textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
                                         }
                                     }
 
@@ -1163,8 +1480,8 @@ class MainActivity : ComponentActivity() {
 
                                                         Surface(
                                                             color = when {
-                                                                isSelected -> MaterialTheme.colorScheme.primary
-                                                                hasEntries -> MaterialTheme.colorScheme.primaryContainer
+                                                                isSelected -> Color(0xFF0055FF)
+                                                                hasEntries -> Color(0xFF003399).copy(alpha = 0.5f)
                                                                 else -> Color.Transparent
                                                             },
                                                             shape = RoundedCornerShape(8.dp),
@@ -1185,13 +1502,13 @@ class MainActivity : ComponentActivity() {
                                                                     text = "$dayNum",
                                                                     fontSize = 11.sp,
                                                                     fontWeight = if (hasEntries) FontWeight.Bold else FontWeight.Normal,
-                                                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                                                    color = primaryTextColor
                                                                 )
                                                                 if (hasEntries) {
                                                                     Text(
                                                                         text = WorkTimeManager.formatMinutesToHours(dayMinutes),
                                                                         fontSize = 9.sp,
-                                                                        color = if (isSelected) Color.White.copy(alpha = 0.9f) else MaterialTheme.colorScheme.primary,
+                                                                        color = Color(0xFF69F0AE),
                                                                         fontWeight = FontWeight.Bold
                                                                     )
                                                                 }
@@ -1207,13 +1524,13 @@ class MainActivity : ComponentActivity() {
 
                                     // Filtered entries for selected day
                                     selectedDayFilter?.let { filterDate ->
-                                        HorizontalDivider()
+                                        HorizontalDivider(color = menuDividerColor)
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text("Einträge für $filterDate:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            Text("Einträge für $filterDate:", fontWeight = FontWeight.Bold, color = primaryTextColor, fontSize = 12.sp)
                                             TextButton(
                                                 onClick = {
                                                     editingWorkEntry = WorkEntry(
@@ -1223,6 +1540,7 @@ class MainActivity : ComponentActivity() {
                                                         durationMinutes = 480L,
                                                         note = "Dienst"
                                                     )
+                                                    showWorkCalendarDialog = false // Hide calendar dialog to prevent bleed-through
                                                     showEditEntryDialog = true
                                                 }
                                             ) {
@@ -1234,23 +1552,26 @@ class MainActivity : ComponentActivity() {
 
                                         val filteredDayEntries = workEntriesList.filter { WorkTimeManager.formatDateToGerman(it.date) == filterDate }
                                         if (filteredDayEntries.isEmpty()) {
-                                            Text("Kein Dienst an diesem Tag.", fontSize = 12.sp, color = Color.Gray)
+                                            Text("Kein Dienst an diesem Tag.", fontSize = 12.sp, color = primaryTextColor.copy(alpha = 0.5f))
                                         } else {
                                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                                 filteredDayEntries.forEach { entry ->
-                                                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))) {
+                                                    Surface(
+                                                        color = if (isDarkMode) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.70f),
+                                                        shape = RoundedCornerShape(12.dp)
+                                                    ) {
                                                         Row(
                                                             modifier = Modifier.fillMaxWidth().padding(8.dp),
                                                             horizontalArrangement = Arrangement.SpaceBetween,
                                                             verticalAlignment = Alignment.CenterVertically
                                                         ) {
-                                                            Text("${entry.startTime} - ${entry.endTime} (${entry.note}): ${WorkTimeManager.formatMinutesToHours(entry.durationMinutes)}", fontSize = 12.sp)
+                                                            Text("${entry.startTime} - ${entry.endTime} (${entry.note}): ${WorkTimeManager.formatMinutesToHours(entry.durationMinutes)}", fontSize = 12.sp, color = primaryTextColor)
                                                             Row {
-                                                                IconButton(onClick = { editingWorkEntry = entry; showEditEntryDialog = true }, modifier = Modifier.size(24.dp)) {
-                                                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                                                                IconButton(onClick = { editingWorkEntry = entry; showWorkCalendarDialog = false; showEditEntryDialog = true }, modifier = Modifier.size(24.dp)) {
+                                                                    Icon(Icons.Default.Edit, contentDescription = null, tint = iconTint, modifier = Modifier.size(14.dp))
                                                                 }
                                                                 IconButton(onClick = { WorkTimeManager.deleteEntry(context, entry.id); workEntriesList = WorkTimeManager.getEntries(context) }, modifier = Modifier.size(24.dp)) {
-                                                                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color(0xFFD32F2F))
+                                                                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color(0xFFFF5252))
                                                                 }
                                                             }
                                                         }
@@ -1261,28 +1582,76 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                        },
-                        confirmButton = {
-                            TextButton(onClick = { showWorkCalendarDialog = false }) {
-                                Text("Schließen")
-                            }
                         }
-                    )
+                    }
                 }
 
-                // --- STUNDEN BEARBEITEN / NACHTRAGEN DIALOG ---
+                // --- STUNDEN BEARBEITEN / NACHTRAGEN DIALOG (iOS MODAL SHEET) ---
                 if (showEditEntryDialog && editingWorkEntry != null) {
                     var editDate by remember { mutableStateOf(WorkTimeManager.formatDateToGerman(editingWorkEntry!!.date)) }
                     var editStart by remember { mutableStateOf(editingWorkEntry!!.startTime) }
                     var editEnd by remember { mutableStateOf(editingWorkEntry!!.endTime) }
                     var editNote by remember { mutableStateOf(editingWorkEntry!!.note) }
 
-                    AlertDialog(
-                        onDismissRequest = { showEditEntryDialog = false },
-                        title = { Text("Eintrag bearbeiten / nachtragen") },
-                        text = {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(
+                    Dialog(
+                        onDismissRequest = {
+                            showEditEntryDialog = false
+                            showWorkCalendarDialog = true // Restore calendar view cleanly
+                        },
+                        properties = DialogProperties(usePlatformDefaultWidth = false)
+                    ) {
+                        IosGroupedCard(
+                            isDarkMode = isDarkMode,
+                            cornerRadius = 28.dp,
+                            modifier = Modifier
+                                .fillMaxWidth(0.90f)
+                                .padding(vertical = 20.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .padding(20.dp)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                // iOS Header Row: Title + Round ✕ Close Button
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Eintrag bearbeiten / nachtragen",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = primaryTextColor
+                                    )
+
+                                    Surface(
+                                        onClick = {
+                                            showEditEntryDialog = false
+                                            showWorkCalendarDialog = true // Restore calendar view cleanly
+                                        },
+                                        shape = CircleShape,
+                                        color = if (isDarkMode) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.08f),
+                                        modifier = Modifier
+                                            .size(30.dp)
+                                            .tactilePress {
+                                                showEditEntryDialog = false
+                                                showWorkCalendarDialog = true
+                                            }
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Schließen",
+                                                tint = primaryTextColor,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                TextField(
                                     value = editDate,
                                     onValueChange = { editDate = it },
                                     label = { Text("Datum (TT.MM.JJJJ)") },
@@ -1309,72 +1678,80 @@ class MainActivity : ComponentActivity() {
                                                 cal.get(Calendar.DAY_OF_MONTH)
                                             ).show()
                                         }) {
-                                            Icon(Icons.Default.DateRange, contentDescription = "Kalender öffnen")
+                                            Icon(Icons.Default.DateRange, contentDescription = "Kalender öffnen", tint = iconTint)
                                         }
                                     },
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = iosTextFieldColors,
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                OutlinedTextField(
+
+                                TextField(
                                     value = editStart,
                                     onValueChange = { editStart = it },
                                     label = { Text("Startzeit (HH:mm)") },
                                     singleLine = true,
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = iosTextFieldColors,
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                OutlinedTextField(
+
+                                TextField(
                                     value = editEnd,
                                     onValueChange = { editEnd = it },
                                     label = { Text("Endzeit (HH:mm)") },
                                     singleLine = true,
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = iosTextFieldColors,
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                OutlinedTextField(
+
+                                TextField(
                                     value = editNote,
                                     onValueChange = { editNote = it },
                                     label = { Text("Bezeichnung / Notiz") },
                                     singleLine = true,
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = iosTextFieldColors,
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                            }
-                        },
-                        confirmButton = {
-                            Button(
-                                onClick = {
-                                    val durMin = try {
-                                        val sdf = SimpleDateFormat("HH:mm", Locale.GERMANY)
-                                        val d1 = sdf.parse(editStart)
-                                        val d2 = sdf.parse(editEnd)
-                                        if (d1 != null && d2 != null) {
-                                            maxOf(1L, (d2.time - d1.time) / (1000 * 60))
-                                        } else 60L
-                                    } catch (_: Exception) { 60L }
 
-                                    val updated = editingWorkEntry!!.copy(
-                                        date = editDate.trim(),
-                                        startTime = editStart.trim(),
-                                        endTime = editEnd.trim(),
-                                        durationMinutes = durMin,
-                                        note = editNote.trim()
-                                    )
-                                    val currentList = WorkTimeManager.getEntries(context)
-                                    if (currentList.any { it.id == updated.id }) {
-                                        WorkTimeManager.updateEntry(context, updated)
-                                    } else {
-                                        WorkTimeManager.addEntry(context, updated)
-                                    }
-                                    workEntriesList = WorkTimeManager.getEntries(context)
-                                    showEditEntryDialog = false
+                                IosButton(
+                                    onClick = {
+                                        val durMin = try {
+                                            val sdf = SimpleDateFormat("HH:mm", Locale.GERMANY)
+                                            val d1 = sdf.parse(editStart)
+                                            val d2 = sdf.parse(editEnd)
+                                            if (d1 != null && d2 != null) {
+                                                maxOf(1L, (d2.time - d1.time) / (1000 * 60))
+                                            } else 60L
+                                        } catch (_: Exception) { 60L }
+
+                                        val updated = editingWorkEntry!!.copy(
+                                            date = editDate.trim(),
+                                            startTime = editStart.trim(),
+                                            endTime = editEnd.trim(),
+                                            durationMinutes = durMin,
+                                            note = editNote.trim()
+                                        )
+                                        val currentList = WorkTimeManager.getEntries(context)
+                                        if (currentList.any { it.id == updated.id }) {
+                                            WorkTimeManager.updateEntry(context, updated)
+                                        } else {
+                                            WorkTimeManager.addEntry(context, updated)
+                                        }
+                                        workEntriesList = WorkTimeManager.getEntries(context)
+                                        showEditEntryDialog = false
+                                        showWorkCalendarDialog = true // Restore calendar view cleanly
+                                    },
+                                    isDarkMode = isDarkMode,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Speichern", fontWeight = FontWeight.Bold)
                                 }
-                            ) {
-                                Text("Speichern")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showEditEntryDialog = false }) {
-                                Text("Abbrechen")
                             }
                         }
-                    )
+                    }
                 }
 
                 // --- UPDATE DIALOG ---

@@ -74,20 +74,14 @@ class SplashActivity : ComponentActivity() {
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.5.sp
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Surface(
-                        color = Color(0xFFFF9800).copy(alpha = 0.25f),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color(0xFFFF9800))
-                    ) {
-                        Text(
-                            text = "EXPERIMENTAL",
-                            color = Color(0xFFFFB74D),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Version 2.5",
+                        color = Color.White.copy(alpha = 0.65f),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.8.sp
+                    )
                 }
             }
         }
